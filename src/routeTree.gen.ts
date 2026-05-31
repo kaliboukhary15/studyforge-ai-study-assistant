@@ -16,6 +16,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedStudyDocumentIdRouteImport } from './routes/_authenticated/study.$documentId'
+import { Route as AuthenticatedQuizDocumentIdRouteImport } from './routes/_authenticated/quiz.$documentId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -51,6 +53,18 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedStudyDocumentIdRoute =
+  AuthenticatedStudyDocumentIdRouteImport.update({
+    id: '/study/$documentId',
+    path: '/study/$documentId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedQuizDocumentIdRoute =
+  AuthenticatedQuizDocumentIdRouteImport.update({
+    id: '/quiz/$documentId',
+    path: '/quiz/$documentId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +73,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/upload': typeof AuthenticatedUploadRoute
+  '/quiz/$documentId': typeof AuthenticatedQuizDocumentIdRoute
+  '/study/$documentId': typeof AuthenticatedStudyDocumentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -67,6 +83,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/upload': typeof AuthenticatedUploadRoute
+  '/quiz/$documentId': typeof AuthenticatedQuizDocumentIdRoute
+  '/study/$documentId': typeof AuthenticatedStudyDocumentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,6 +95,8 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
+  '/_authenticated/quiz/$documentId': typeof AuthenticatedQuizDocumentIdRoute
+  '/_authenticated/study/$documentId': typeof AuthenticatedStudyDocumentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,8 +107,18 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/documents'
     | '/upload'
+    | '/quiz/$documentId'
+    | '/study/$documentId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/register' | '/dashboard' | '/documents' | '/upload'
+  to:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/dashboard'
+    | '/documents'
+    | '/upload'
+    | '/quiz/$documentId'
+    | '/study/$documentId'
   id:
     | '__root__'
     | '/'
@@ -98,6 +128,8 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/documents'
     | '/_authenticated/upload'
+    | '/_authenticated/quiz/$documentId'
+    | '/_authenticated/study/$documentId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -158,6 +190,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/study/$documentId': {
+      id: '/_authenticated/study/$documentId'
+      path: '/study/$documentId'
+      fullPath: '/study/$documentId'
+      preLoaderRoute: typeof AuthenticatedStudyDocumentIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/quiz/$documentId': {
+      id: '/_authenticated/quiz/$documentId'
+      path: '/quiz/$documentId'
+      fullPath: '/quiz/$documentId'
+      preLoaderRoute: typeof AuthenticatedQuizDocumentIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -165,12 +211,16 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
+  AuthenticatedQuizDocumentIdRoute: typeof AuthenticatedQuizDocumentIdRoute
+  AuthenticatedStudyDocumentIdRoute: typeof AuthenticatedStudyDocumentIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,
+  AuthenticatedQuizDocumentIdRoute: AuthenticatedQuizDocumentIdRoute,
+  AuthenticatedStudyDocumentIdRoute: AuthenticatedStudyDocumentIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -186,3 +236,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
