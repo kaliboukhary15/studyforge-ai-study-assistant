@@ -81,11 +81,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "StudyForge — AI-Powered Study Assistant" },
       { name: "description", content: "Upload documents and get AI-generated summaries, explanations, and quizzes." },
       { name: "author", content: "StudyForge" },
-      { property: "og:title", content: "StudyForge" },
+      { property: "og:title", content: "StudyForge — AI-Powered Study Assistant" },
       { property: "og:description", content: "Upload documents and get AI-generated summaries, explanations, and quizzes." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@StudyForge" },
+      { name: "twitter:title", content: "StudyForge — AI-Powered Study Assistant" },
+      { name: "twitter:description", content: "Upload documents and get AI-generated summaries, explanations, and quizzes." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8bd7bb0e-9ab4-4371-a74a-1989ded78d06/id-preview-d9023725--d0ee5f54-f536-48c9-a96e-15a938fb44e4.lovable.app-1780241159313.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8bd7bb0e-9ab4-4371-a74a-1989ded78d06/id-preview-d9023725--d0ee5f54-f536-48c9-a96e-15a938fb44e4.lovable.app-1780241159313.png" },
     ],
     links: [
       {
