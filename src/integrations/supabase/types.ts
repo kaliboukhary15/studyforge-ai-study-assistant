@@ -14,7 +14,186 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      documents: {
+        Row: {
+          created_at: string
+          extracted_text: string | null
+          file_size: number | null
+          file_type: string
+          filename: string
+          id: string
+          storage_path: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          extracted_text?: string | null
+          file_size?: number | null
+          file_type: string
+          filename: string
+          id?: string
+          storage_path: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          extracted_text?: string | null
+          file_size?: number | null
+          file_type?: string
+          filename?: string
+          id?: string
+          storage_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quiz_attempts: {
+        Row: {
+          answers: Json
+          created_at: string
+          id: string
+          quiz_id: string
+          score: number
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          answers: Json
+          created_at?: string
+          id?: string
+          quiz_id: string
+          score: number
+          total_questions: number
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          id?: string
+          quiz_id?: string
+          score?: number
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          questions: Json
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          questions: Json
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          questions?: Json
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      summaries: {
+        Row: {
+          created_at: string
+          document_id: string
+          explanation: string | null
+          id: string
+          key_concepts: Json | null
+          summary: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          explanation?: string | null
+          id?: string
+          key_concepts?: Json | null
+          summary?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          explanation?: string | null
+          id?: string
+          key_concepts?: Json | null
+          summary?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "summaries_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
