@@ -129,7 +129,7 @@ export const getQuizzes = createServerFn({ method: "GET" })
 
 export const saveQuizAttempt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { quiz_id: string; score: number; total_questions: number; answers: unknown }) => input)
+  .inputValidator((input: { quiz_id: string; score: number; total_questions: number; answers: Record<string, string> }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: attempt, error } = await supabase
@@ -139,7 +139,7 @@ export const saveQuizAttempt = createServerFn({ method: "POST" })
         user_id: userId,
         score: data.score,
         total_questions: data.total_questions,
-        answers: data.answers,
+        answers: data.answers as Record<string, string>,
       })
       .select()
       .single();
