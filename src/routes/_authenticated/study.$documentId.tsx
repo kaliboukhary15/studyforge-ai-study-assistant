@@ -51,11 +51,13 @@ function StudyPage() {
 
   const generateMaterial = useServerFn(generateStudyMaterial);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"summary" | "explanation" | "concepts">("summary");
 
   const handleGenerate = async () => {
     if (!document?.extracted_text) return;
     setIsGenerating(true);
+    setGenError(null);
     try {
       await generateMaterial({
         data: {
@@ -66,6 +68,7 @@ function StudyPage() {
       refetchSummaries();
     } catch (e) {
       console.error(e);
+      setGenError(e instanceof Error ? e.message : "Failed to generate study material");
     }
     setIsGenerating(false);
   };
@@ -105,6 +108,9 @@ function StudyPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             Let AI analyze your document and create a summary, explanation, and key concepts.
           </p>
+          {genError && (
+            <p className="mt-3 text-sm text-destructive">{genError}</p>
+          )}
           {document.extracted_text ? (
             <button
               onClick={handleGenerate}

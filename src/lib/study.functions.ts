@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
-import { generateText, Output } from "ai";
+import { generateObject } from "ai";
 import { z } from "zod";
 
 // Generate summary, explanation, and key concepts from document text
@@ -16,19 +16,14 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-3-flash-preview");
 
-    const { output } = await generateText({
+    const { object: output } = await generateObject({
       model,
-      output: Output.object({
-        schema: z.object({
-          summary: z.string().describe("A concise 3-5 paragraph summary of the document"),
-          explanation: z.string().describe("A clear explanation of the main concepts and ideas in the document, written as if explaining to a student"),
-          key_concepts: z.array(
-            z.object({
-              term: z.string(),
-              definition: z.string(),
-            })
-          ).describe("Key terms and definitions from the document"),
-        }),
+      schema: z.object({
+        summary: z.string().describe("A concise 3-5 paragraph summary of the document"),
+        explanation: z.string().describe("A clear explanation of the main concepts and ideas in the document, written as if explaining to a student"),
+        key_concepts: z.array(
+          z.object({ term: z.string(), definition: z.string() })
+        ).describe("Key terms and definitions from the document"),
       }),
       prompt: `Analyze the following document text and provide a study guide.\n\nDocument text:\n${data.text.slice(0, 15000)}`,
     });
@@ -62,20 +57,18 @@ export const generateQuiz = createServerFn({ method: "POST" })
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-3-flash-preview");
 
-    const { output } = await generateText({
+    const { object: output } = await generateObject({
       model,
-      output: Output.object({
-        schema: z.object({
-          questions: z.array(
-            z.object({
-              question: z.string(),
-              type: z.enum(["multiple_choice", "true_false"]),
-              options: z.array(z.string()).optional(),
-              correct_answer: z.string(),
-              explanation: z.string(),
-            })
-          ).describe("A mix of multiple choice and true/false questions based on the document"),
-        }),
+      schema: z.object({
+        questions: z.array(
+          z.object({
+            question: z.string(),
+            type: z.enum(["multiple_choice", "true_false"]),
+            options: z.array(z.string()).optional(),
+            correct_answer: z.string(),
+            explanation: z.string(),
+          })
+        ).describe("A mix of multiple choice and true/false questions based on the document"),
       }),
       prompt: `Create a quiz with 10 questions based on the following document text. Include both multiple choice (4 options) and true/false questions. Make sure the correct answer is accurate based on the text.\n\nDocument text:\n${data.text.slice(0, 15000)}`,
     });
