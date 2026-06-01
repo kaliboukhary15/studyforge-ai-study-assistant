@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/upload")({
   head: () => ({
     meta: [
       { title: "Upload Document — StudyForge" },
-      { name: "description", content: "Upload PDF, DOCX, or PPTX files to StudyForge." },
+      { name: "description", content: "Upload any document to StudyForge." },
     ],
   }),
   component: UploadPage,
@@ -41,11 +41,6 @@ function UploadPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      "application/pdf": [".pdf"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
-    },
     maxSize: 20 * 1024 * 1024, // 20MB
   });
 
@@ -115,7 +110,7 @@ function UploadPage() {
       <div>
         <h1 className="text-3xl font-bold font-display text-foreground">Upload Document</h1>
         <p className="mt-1 text-muted-foreground">
-          Upload your study materials. We support PDF, DOCX, and PPTX files.
+          Upload any study materials — PDF, DOCX, PPTX, XLSX, text, code, and more.
         </p>
       </div>
 
@@ -157,7 +152,7 @@ function UploadPage() {
         <p className="mt-1 text-xs text-muted-foreground">
           or click to browse. Max 20MB per file.
         </p>
-        <p className="mt-2 text-xs text-muted-foreground">PDF, DOCX, PPTX</p>
+        <p className="mt-2 text-xs text-muted-foreground">All file types supported</p>
       </div>
 
       {files.length > 0 && (
