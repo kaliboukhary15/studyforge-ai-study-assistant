@@ -155,34 +155,52 @@ export type Database = {
       }
       summaries: {
         Row: {
+          analogies: Json | null
           created_at: string
           document_id: string
+          examples: Json | null
           explanation: string | null
           id: string
           key_concepts: Json | null
+          level: string
+          notes: string | null
+          practice: Json | null
           summary: string | null
           updated_at: string
           user_id: string
+          visuals: Json | null
         }
         Insert: {
+          analogies?: Json | null
           created_at?: string
           document_id: string
+          examples?: Json | null
           explanation?: string | null
           id?: string
           key_concepts?: Json | null
+          level?: string
+          notes?: string | null
+          practice?: Json | null
           summary?: string | null
           updated_at?: string
           user_id: string
+          visuals?: Json | null
         }
         Update: {
+          analogies?: Json | null
           created_at?: string
           document_id?: string
+          examples?: Json | null
           explanation?: string | null
           id?: string
           key_concepts?: Json | null
+          level?: string
+          notes?: string | null
+          practice?: Json | null
           summary?: string | null
           updated_at?: string
           user_id?: string
+          visuals?: Json | null
         }
         Relationships: [
           {
