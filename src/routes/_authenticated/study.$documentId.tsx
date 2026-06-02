@@ -7,7 +7,6 @@ import { getDocument } from "@/lib/documents.functions";
 import { getSummaries, generateStudyMaterial, saveSummaryNotes } from "@/lib/study.functions";
 import { MermaidDiagram } from "@/components/mermaid-diagram";
 import {
-  FileText,
   BookOpen,
   Lightbulb,
   Sparkles,
