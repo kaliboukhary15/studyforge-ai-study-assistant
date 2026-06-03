@@ -79,7 +79,6 @@ function StudyPage() {
       await generateMaterial({
         data: {
           document_id: documentId,
-          text: document.extracted_text,
           level,
         },
       });
