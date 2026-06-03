@@ -165,6 +165,7 @@ export type Database = {
           level: string
           notes: string | null
           practice: Json | null
+          subject: string | null
           summary: string | null
           updated_at: string
           user_id: string
@@ -181,6 +182,7 @@ export type Database = {
           level?: string
           notes?: string | null
           practice?: Json | null
+          subject?: string | null
           summary?: string | null
           updated_at?: string
           user_id: string
@@ -197,6 +199,7 @@ export type Database = {
           level?: string
           notes?: string | null
           practice?: Json | null
+          subject?: string | null
           summary?: string | null
           updated_at?: string
           user_id?: string
