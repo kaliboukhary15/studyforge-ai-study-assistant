@@ -64,7 +64,6 @@ function QuizPage() {
       await generateQuizFn({
         data: {
           document_id: documentId,
-          text: document.extracted_text,
           title: `Quiz: ${document.filename}`,
         },
       });

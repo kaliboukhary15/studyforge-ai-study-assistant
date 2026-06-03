@@ -12,7 +12,7 @@ export function MermaidDiagram({ chart, id }: { chart: string; id: string }) {
       mermaid.initialize({
         startOnLoad: false,
         theme: "neutral",
-        securityLevel: "loose",
+        securityLevel: "strict",
         fontFamily: "inherit",
       });
       initialized = true;
