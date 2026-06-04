@@ -101,18 +101,9 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
 
     const text = doc.extracted_text.slice(0, 15000);
 
-    // Step 1: detect subject so we can route to the right playbook
-    const { experimental_output: detected } = await generateText({
-      model,
-      experimental_output: Output.object({
-        schema: z.object({
-          subject: z.string().describe("Best-fit subject area, e.g. Mathematics, Programming, Databases, Networking, Physics, Accounting, Business, MIS, Statistics, Chemistry, Biology, History, Law, Language, General."),
-          confidence: z.enum(["low", "medium", "high"]),
-        }),
-      }),
-      prompt: `Classify the subject of the following study material. Return ONLY the subject and confidence.\n\n---\n${text.slice(0, 4000)}`,
-    });
-    const { canonical: subject, guide: playbook } = playbookFor(detected.subject);
+    // Quick heuristic subject detection (no extra AI roundtrip)
+    const detectedRaw = quickDetectSubject(text);
+    const { canonical: subject, guide: playbook } = playbookFor(detectedRaw);
 
     const { experimental_output: output } = await generateText({
       model,
