@@ -62,6 +62,29 @@ function playbookFor(subject: string): { canonical: string; guide: string } {
   return { canonical: subject || "General", guide: SUBJECT_PLAYBOOKS.General };
 }
 
+function quickDetectSubject(text: string): string {
+  const t = text.toLowerCase().slice(0, 8000);
+  const score = (kws: string[]) => kws.reduce((a, k) => a + (t.includes(k) ? 1 : 0), 0);
+  const candidates: Array<[string, number]> = [
+    ["Mathematics", score(["theorem", "integral", "derivative", "equation", "algebra", "calculus", "matrix"])],
+    ["Programming", score(["function", "variable", "const ", "class ", "import ", "def ", "return ", "console.log"])],
+    ["Databases", score(["select ", "from ", "join", "primary key", "foreign key", "schema", "normaliz"])],
+    ["Networking", score(["tcp", "udp", "packet", "router", "protocol", "subnet", "ip address"])],
+    ["Physics", score(["velocity", "force", "newton", "energy", "momentum", "acceleration"])],
+    ["Chemistry", score(["mole", "reaction", "compound", "molecule", "acid", "base", "atom"])],
+    ["Biology", score(["cell", "dna", "protein", "organism", "enzyme", "tissue"])],
+    ["Accounting", score(["debit", "credit", "ledger", "journal entry", "balance sheet", "revenue"])],
+    ["Business", score(["market", "customer", "strategy", "revenue", "company", "swot"])],
+    ["Statistics", score(["mean", "variance", "p-value", "probability", "distribution", "regression"])],
+    ["Law", score(["plaintiff", "defendant", "statute", "court", "contract", "tort"])],
+    ["History", score(["century", "war", "empire", "revolution", "treaty", "ancient"])],
+    ["Language", score(["grammar", "verb", "noun", "tense", "translation", "conjugat"])],
+    ["Algorithms", score(["complexity", "big-o", "recursion", "graph traversal", "sorting"])],
+  ];
+  candidates.sort((a, b) => b[1] - a[1]);
+  return candidates[0][1] >= 2 ? candidates[0][0] : "General";
+}
+
 // Generate summary, explanation, and key concepts from document text
 export const generateStudyMaterial = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
