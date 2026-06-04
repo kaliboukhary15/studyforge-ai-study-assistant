@@ -185,6 +185,38 @@ function StudyPage() {
               ))}
             </div>
           </div>
+          <div className="mt-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Language</p>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="mt-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="auto">Auto-detect from document</option>
+              <option value="english">English</option>
+              <option value="arabic">العربية (Arabic)</option>
+              <option value="french">Français (French)</option>
+              <option value="spanish">Español (Spanish)</option>
+              <option value="german">Deutsch (German)</option>
+              <option value="italian">Italiano (Italian)</option>
+              <option value="portuguese">Português (Portuguese)</option>
+              <option value="chinese">中文 (Chinese)</option>
+              <option value="japanese">日本語 (Japanese)</option>
+              <option value="korean">한국어 (Korean)</option>
+              <option value="russian">Русский (Russian)</option>
+              <option value="hindi">हिन्दी (Hindi)</option>
+              <option value="turkish">Türkçe (Turkish)</option>
+            </select>
+            <label className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={bilingual}
+                onChange={(e) => setBilingual(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-border"
+              />
+              Bilingual mode (show English alongside original)
+            </label>
+          </div>
           {genError && (
             <p className="mt-3 text-sm text-destructive">{genError}</p>
           )}
