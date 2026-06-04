@@ -62,6 +62,8 @@ function StudyPage() {
     "explanation" | "examples" | "visuals" | "practice" | "notes"
   >("explanation");
   const [level, setLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
+  const [language, setLanguage] = useState<string>("auto");
+  const [bilingual, setBilingual] = useState<boolean>(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
@@ -80,6 +82,11 @@ function StudyPage() {
         data: {
           document_id: documentId,
           level,
+          language: language as
+            | "auto" | "english" | "arabic" | "french" | "spanish" | "german"
+            | "italian" | "portuguese" | "chinese" | "japanese" | "korean"
+            | "russian" | "hindi" | "turkish",
+          bilingual,
         },
       });
       refetchSummaries();
@@ -135,6 +142,23 @@ function StudyPage() {
     answer: string;
     explanation: string;
   }>;
+  const summaryLang = (summary as { language?: string } | undefined)?.language ?? "english";
+  const isRtl = ["arabic", "hebrew", "persian", "urdu"].includes(summaryLang);
+  const langLabel: Record<string, string> = {
+    english: "English",
+    arabic: "العربية",
+    french: "Français",
+    spanish: "Español",
+    german: "Deutsch",
+    italian: "Italiano",
+    portuguese: "Português",
+    chinese: "中文",
+    japanese: "日本語",
+    korean: "한국어",
+    russian: "Русский",
+    hindi: "हिन्दी",
+    turkish: "Türkçe",
+  };
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -177,6 +201,38 @@ function StudyPage() {
                 </button>
               ))}
             </div>
+          </div>
+          <div className="mt-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Language</p>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="mt-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="auto">Auto-detect from document</option>
+              <option value="english">English</option>
+              <option value="arabic">العربية (Arabic)</option>
+              <option value="french">Français (French)</option>
+              <option value="spanish">Español (Spanish)</option>
+              <option value="german">Deutsch (German)</option>
+              <option value="italian">Italiano (Italian)</option>
+              <option value="portuguese">Português (Portuguese)</option>
+              <option value="chinese">中文 (Chinese)</option>
+              <option value="japanese">日本語 (Japanese)</option>
+              <option value="korean">한국어 (Korean)</option>
+              <option value="russian">Русский (Russian)</option>
+              <option value="hindi">हिन्दी (Hindi)</option>
+              <option value="turkish">Türkçe (Turkish)</option>
+            </select>
+            <label className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={bilingual}
+                onChange={(e) => setBilingual(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-border"
+              />
+              Bilingual mode (show English alongside original)
+            </label>
           </div>
           {genError && (
             <p className="mt-3 text-sm text-destructive">{genError}</p>
@@ -222,6 +278,13 @@ function StudyPage() {
                   {summary.level ?? "intermediate"}
                 </span>
               </span>
+              <span className="text-border">·</span>
+              <span>
+                Language:{" "}
+                <span className="font-medium text-foreground">
+                  {langLabel[summaryLang] ?? summaryLang}
+                </span>
+              </span>
             </div>
             <button
               onClick={handleGenerate}
@@ -256,7 +319,10 @@ function StudyPage() {
           </div>
 
           {/* Content */}
-          <div className="rounded-2xl border border-border bg-card p-6">
+          <div
+            dir={isRtl ? "rtl" : "ltr"}
+            className="rounded-2xl border border-border bg-card p-6"
+          >
             {activeTab === "explanation" && (
               <div className="space-y-6">
                 <div>

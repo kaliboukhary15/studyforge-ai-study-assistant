@@ -6,6 +6,75 @@ import { z } from "zod";
 
 const LevelEnum = z.enum(["beginner", "intermediate", "advanced"]);
 
+const LanguageEnum = z.enum([
+  "auto",
+  "english",
+  "arabic",
+  "french",
+  "spanish",
+  "german",
+  "italian",
+  "portuguese",
+  "chinese",
+  "japanese",
+  "korean",
+  "russian",
+  "hindi",
+  "turkish",
+]);
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  english: "English",
+  arabic: "Arabic (العربية)",
+  french: "French (Français)",
+  spanish: "Spanish (Español)",
+  german: "German (Deutsch)",
+  italian: "Italian (Italiano)",
+  portuguese: "Portuguese (Português)",
+  chinese: "Chinese (中文)",
+  japanese: "Japanese (日本語)",
+  korean: "Korean (한국어)",
+  russian: "Russian (Русский)",
+  hindi: "Hindi (हिन्दी)",
+  turkish: "Turkish (Türkçe)",
+};
+
+// Fast heuristic language detection from a text sample. Falls back to English.
+function quickDetectLanguage(text: string): string {
+  const sample = text.slice(0, 4000);
+  // Script-based detection wins first (non-Latin scripts are unambiguous)
+  const counts = {
+    arabic: (sample.match(/[\u0600-\u06FF]/g) || []).length,
+    chinese: (sample.match(/[\u4E00-\u9FFF]/g) || []).length,
+    japanese: (sample.match(/[\u3040-\u30FF]/g) || []).length,
+    korean: (sample.match(/[\uAC00-\uD7AF]/g) || []).length,
+    cyrillic: (sample.match(/[\u0400-\u04FF]/g) || []).length,
+    devanagari: (sample.match(/[\u0900-\u097F]/g) || []).length,
+  };
+  if (counts.arabic > 30) return "arabic";
+  if (counts.chinese > 30) return "chinese";
+  if (counts.japanese > 20) return "japanese";
+  if (counts.korean > 20) return "korean";
+  if (counts.cyrillic > 30) return "russian";
+  if (counts.devanagari > 20) return "hindi";
+
+  // Latin-script: stopword scoring
+  const t = ` ${sample.toLowerCase().replace(/[^a-zà-ÿğıİşöüç ]+/g, " ")} `;
+  const score = (words: string[]) => words.reduce((a, w) => a + (t.split(` ${w} `).length - 1), 0);
+  const candidates: Array<[string, number]> = [
+    ["english", score(["the", "and", "of", "to", "in", "is", "that", "for", "with", "this"])],
+    ["french", score(["le", "la", "les", "des", "une", "est", "et", "dans", "que", "pour", "avec"])],
+    ["spanish", score(["el", "la", "los", "las", "una", "es", "que", "en", "para", "con", "del", "por"])],
+    ["german", score(["der", "die", "das", "und", "ist", "nicht", "mit", "ein", "eine", "für", "auch"])],
+    ["italian", score(["il", "la", "che", "di", "una", "per", "con", "non", "sono", "anche"])],
+    ["portuguese", score(["de", "que", "não", "uma", "para", "com", "por", "como", "mais", "também"])],
+    ["turkish", score(["bir", "ve", "bu", "için", "ile", "olan", "değil", "çok"])],
+  ];
+  candidates.sort((a, b) => b[1] - a[1]);
+  if (candidates[0][1] >= 3) return candidates[0][0];
+  return "english";
+}
+
 const SUBJECT_PLAYBOOKS: Record<string, string> = {
   Mathematics:
     "Show fully worked numerical problems with every algebraic step on its own line. Use LaTeX-style notation inline. Call out common arithmetic mistakes. Practice = mix of computation problems and word problems.",
@@ -93,6 +162,8 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
       .object({
         document_id: z.string().uuid(),
         level: LevelEnum.optional(),
+        language: LanguageEnum.optional(),
+        bilingual: z.boolean().optional(),
       })
       .parse(input)
   )
@@ -127,6 +198,22 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
     // Quick heuristic subject detection (no extra AI roundtrip)
     const detectedRaw = quickDetectSubject(text);
     const { canonical: subject, guide: playbook } = playbookFor(detectedRaw);
+
+    // Language detection — explicit override wins, otherwise auto-detect
+    const requestedLang = data.language ?? "auto";
+    const detectedLang = requestedLang === "auto" ? quickDetectLanguage(text) : requestedLang;
+    const languageLabel = LANGUAGE_LABELS[detectedLang] ?? "English";
+    const bilingual = data.bilingual ?? false;
+
+    const languageInstruction = `PRIMARY OUTPUT LANGUAGE: ${languageLabel}.
+ALL generated text — summary, explanation, key concept terms/definitions, example titles & bodies, analogy concepts & text, visual titles & descriptions, practice questions/answers/explanations, and comprehension_check — MUST be written in ${languageLabel}.
+Preserve standard technical terminology (e.g. SQL keywords, code identifiers, mathematical symbols, scientific units, proper nouns) in their original form even when surrounding prose is in ${languageLabel}.
+Use culturally appropriate examples, names, currencies, and writing conventions for ${languageLabel} when generating scenarios and case studies.
+If the language is Arabic, write right-to-left natural prose (the renderer handles direction); do not transliterate.${
+      bilingual
+        ? `\n\nBILINGUAL MODE: After each paragraph of the main "explanation" field, append a line starting with "EN: " containing a concise English translation of that paragraph. For each item in "key_concepts", include the English translation of the term in parentheses after the original term (e.g. "المصفوفة (Matrix)").`
+        : ""
+    }`;
 
     const { experimental_output: output } = await generateText({
       model,
@@ -180,6 +267,8 @@ ${playbook}
 
 Learning level: ${level}. ${levelGuide[level]}
 
+${languageInstruction}
+
 Teach — don't summarize. Set the "subject" field in your JSON to "${subject}".
 
 Rules for examples: every example MUST follow the subject playbook above. Do not produce generic prose examples when the playbook calls for worked problems, code, SQL, journal entries, IRAC, or case studies.
@@ -202,6 +291,8 @@ ${text}`,
         user_id: userId,
         level,
         subject,
+        language: detectedLang,
+        bilingual: { enabled: bilingual },
         summary: output.summary,
         explanation: output.explanation,
         key_concepts: output.key_concepts,
@@ -263,6 +354,9 @@ export const generateQuiz = createServerFn({ method: "POST" })
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-2.5-flash");
 
+    const quizLang = quickDetectLanguage(doc.extracted_text);
+    const quizLangLabel = LANGUAGE_LABELS[quizLang] ?? "English";
+
     const { experimental_output: output } = await generateText({
       model,
       experimental_output: Output.object({
@@ -278,7 +372,7 @@ export const generateQuiz = createServerFn({ method: "POST" })
           ),
         }),
       }),
-      prompt: `Create a quiz with 10 questions from the document below. Mix multiple choice (4 options) and true/false. Return JSON {questions:[{question,type,options?,correct_answer,explanation}]}.\n\nDocument:\n${doc.extracted_text.slice(0, 15000)}`,
+      prompt: `Create a quiz with 10 questions from the document below. Mix multiple choice (4 options) and true/false. Write ALL questions, options, correct_answer values, and explanations in ${quizLangLabel} (preserve standard technical terminology in its original form). Return JSON {questions:[{question,type,options?,correct_answer,explanation}]}.\n\nDocument:\n${doc.extracted_text.slice(0, 15000)}`,
     });
 
     const { data: quiz, error } = await supabase

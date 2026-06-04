@@ -156,12 +156,14 @@ export type Database = {
       summaries: {
         Row: {
           analogies: Json | null
+          bilingual: Json | null
           created_at: string
           document_id: string
           examples: Json | null
           explanation: string | null
           id: string
           key_concepts: Json | null
+          language: string | null
           level: string
           notes: string | null
           practice: Json | null
@@ -173,12 +175,14 @@ export type Database = {
         }
         Insert: {
           analogies?: Json | null
+          bilingual?: Json | null
           created_at?: string
           document_id: string
           examples?: Json | null
           explanation?: string | null
           id?: string
           key_concepts?: Json | null
+          language?: string | null
           level?: string
           notes?: string | null
           practice?: Json | null
@@ -190,12 +194,14 @@ export type Database = {
         }
         Update: {
           analogies?: Json | null
+          bilingual?: Json | null
           created_at?: string
           document_id?: string
           examples?: Json | null
           explanation?: string | null
           id?: string
           key_concepts?: Json | null
+          language?: string | null
           level?: string
           notes?: string | null
           practice?: Json | null
