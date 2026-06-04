@@ -62,6 +62,8 @@ function StudyPage() {
     "explanation" | "examples" | "visuals" | "practice" | "notes"
   >("explanation");
   const [level, setLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
+  const [language, setLanguage] = useState<string>("auto");
+  const [bilingual, setBilingual] = useState<boolean>(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
@@ -80,6 +82,11 @@ function StudyPage() {
         data: {
           document_id: documentId,
           level,
+          language: language as
+            | "auto" | "english" | "arabic" | "french" | "spanish" | "german"
+            | "italian" | "portuguese" | "chinese" | "japanese" | "korean"
+            | "russian" | "hindi" | "turkish",
+          bilingual,
         },
       });
       refetchSummaries();
