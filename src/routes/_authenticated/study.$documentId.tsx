@@ -142,6 +142,23 @@ function StudyPage() {
     answer: string;
     explanation: string;
   }>;
+  const summaryLang = (summary as { language?: string } | undefined)?.language ?? "english";
+  const isRtl = ["arabic", "hebrew", "persian", "urdu"].includes(summaryLang);
+  const langLabel: Record<string, string> = {
+    english: "English",
+    arabic: "العربية",
+    french: "Français",
+    spanish: "Español",
+    german: "Deutsch",
+    italian: "Italiano",
+    portuguese: "Português",
+    chinese: "中文",
+    japanese: "日本語",
+    korean: "한국어",
+    russian: "Русский",
+    hindi: "हिन्दी",
+    turkish: "Türkçe",
+  };
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -259,6 +276,13 @@ function StudyPage() {
                 Level:{" "}
                 <span className="font-medium capitalize text-foreground">
                   {summary.level ?? "intermediate"}
+                </span>
+              </span>
+              <span className="text-border">·</span>
+              <span>
+                Language:{" "}
+                <span className="font-medium text-foreground">
+                  {langLabel[summaryLang] ?? summaryLang}
                 </span>
               </span>
             </div>
