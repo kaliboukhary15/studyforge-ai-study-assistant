@@ -62,6 +62,29 @@ function playbookFor(subject: string): { canonical: string; guide: string } {
   return { canonical: subject || "General", guide: SUBJECT_PLAYBOOKS.General };
 }
 
+function quickDetectSubject(text: string): string {
+  const t = text.toLowerCase().slice(0, 8000);
+  const score = (kws: string[]) => kws.reduce((a, k) => a + (t.includes(k) ? 1 : 0), 0);
+  const candidates: Array<[string, number]> = [
+    ["Mathematics", score(["theorem", "integral", "derivative", "equation", "algebra", "calculus", "matrix"])],
+    ["Programming", score(["function", "variable", "const ", "class ", "import ", "def ", "return ", "console.log"])],
+    ["Databases", score(["select ", "from ", "join", "primary key", "foreign key", "schema", "normaliz"])],
+    ["Networking", score(["tcp", "udp", "packet", "router", "protocol", "subnet", "ip address"])],
+    ["Physics", score(["velocity", "force", "newton", "energy", "momentum", "acceleration"])],
+    ["Chemistry", score(["mole", "reaction", "compound", "molecule", "acid", "base", "atom"])],
+    ["Biology", score(["cell", "dna", "protein", "organism", "enzyme", "tissue"])],
+    ["Accounting", score(["debit", "credit", "ledger", "journal entry", "balance sheet", "revenue"])],
+    ["Business", score(["market", "customer", "strategy", "revenue", "company", "swot"])],
+    ["Statistics", score(["mean", "variance", "p-value", "probability", "distribution", "regression"])],
+    ["Law", score(["plaintiff", "defendant", "statute", "court", "contract", "tort"])],
+    ["History", score(["century", "war", "empire", "revolution", "treaty", "ancient"])],
+    ["Language", score(["grammar", "verb", "noun", "tense", "translation", "conjugat"])],
+    ["Algorithms", score(["complexity", "big-o", "recursion", "graph traversal", "sorting"])],
+  ];
+  candidates.sort((a, b) => b[1] - a[1]);
+  return candidates[0][1] >= 2 ? candidates[0][0] : "General";
+}
+
 // Generate summary, explanation, and key concepts from document text
 export const generateStudyMaterial = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -99,20 +122,11 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
       advanced: "Use precise technical terminology and industry vocabulary. Go deep into nuances, edge cases, and underlying mechanics.",
     };
 
-    const text = doc.extracted_text.slice(0, 15000);
+    const text = doc.extracted_text.slice(0, 10000);
 
-    // Step 1: detect subject so we can route to the right playbook
-    const { experimental_output: detected } = await generateText({
-      model,
-      experimental_output: Output.object({
-        schema: z.object({
-          subject: z.string().describe("Best-fit subject area, e.g. Mathematics, Programming, Databases, Networking, Physics, Accounting, Business, MIS, Statistics, Chemistry, Biology, History, Law, Language, General."),
-          confidence: z.enum(["low", "medium", "high"]),
-        }),
-      }),
-      prompt: `Classify the subject of the following study material. Return ONLY the subject and confidence.\n\n---\n${text.slice(0, 4000)}`,
-    });
-    const { canonical: subject, guide: playbook } = playbookFor(detected.subject);
+    // Quick heuristic subject detection (no extra AI roundtrip)
+    const detectedRaw = quickDetectSubject(text);
+    const { canonical: subject, guide: playbook } = playbookFor(detectedRaw);
 
     const { experimental_output: output } = await generateText({
       model,
