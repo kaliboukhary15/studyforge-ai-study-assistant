@@ -354,6 +354,9 @@ export const generateQuiz = createServerFn({ method: "POST" })
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-2.5-flash");
 
+    const quizLang = quickDetectLanguage(doc.extracted_text);
+    const quizLangLabel = LANGUAGE_LABELS[quizLang] ?? "English";
+
     const { experimental_output: output } = await generateText({
       model,
       experimental_output: Output.object({
@@ -369,7 +372,7 @@ export const generateQuiz = createServerFn({ method: "POST" })
           ),
         }),
       }),
-      prompt: `Create a quiz with 10 questions from the document below. Mix multiple choice (4 options) and true/false. Return JSON {questions:[{question,type,options?,correct_answer,explanation}]}.\n\nDocument:\n${doc.extracted_text.slice(0, 15000)}`,
+      prompt: `Create a quiz with 10 questions from the document below. Mix multiple choice (4 options) and true/false. Write ALL questions, options, correct_answer values, and explanations in ${quizLangLabel} (preserve standard technical terminology in its original form). Return JSON {questions:[{question,type,options?,correct_answer,explanation}]}.\n\nDocument:\n${doc.extracted_text.slice(0, 15000)}`,
     });
 
     const { data: quiz, error } = await supabase
