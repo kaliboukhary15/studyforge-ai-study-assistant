@@ -122,7 +122,7 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
       advanced: "Use precise technical terminology and industry vocabulary. Go deep into nuances, edge cases, and underlying mechanics.",
     };
 
-    const text = doc.extracted_text.slice(0, 15000);
+    const text = doc.extracted_text.slice(0, 10000);
 
     // Quick heuristic subject detection (no extra AI roundtrip)
     const detectedRaw = quickDetectSubject(text);
