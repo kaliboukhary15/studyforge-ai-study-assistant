@@ -319,7 +319,10 @@ function StudyPage() {
           </div>
 
           {/* Content */}
-          <div className="rounded-2xl border border-border bg-card p-6">
+          <div
+            dir={isRtl ? "rtl" : "ltr"}
+            className="rounded-2xl border border-border bg-card p-6"
+          >
             {activeTab === "explanation" && (
               <div className="space-y-6">
                 <div>
