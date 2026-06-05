@@ -5,6 +5,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { getDocument } from "@/lib/documents.functions";
 import { getSummaries, generateStudyMaterial, saveSummaryNotes } from "@/lib/study.functions";
+import { updateDocumentText } from "@/lib/documents.functions";
+import { extractTextFromFile } from "@/lib/document-parser";
+import { supabase } from "@/integrations/supabase/client";
 import { MermaidDiagram } from "@/components/mermaid-diagram";
 import {
   BookOpen,
@@ -56,8 +59,11 @@ function StudyPage() {
 
   const generateMaterial = useServerFn(generateStudyMaterial);
   const saveNotes = useServerFn(saveSummaryNotes);
+  const updateDocText = useServerFn(updateDocumentText);
   const [isGenerating, setIsGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     "explanation" | "examples" | "visuals" | "practice" | "notes"
   >("explanation");
@@ -109,6 +115,28 @@ function StudyPage() {
       console.error(e);
     }
     setNotesSaving(false);
+  };
+
+  const handleReExtract = async () => {
+    if (!document) return;
+    setIsExtracting(true);
+    setExtractError(null);
+    try {
+      const { data, error } = await supabase.storage
+        .from("documents")
+        .download(document.storage_path);
+      if (error) throw error;
+      const file = new File([data], document.filename, { type: data.type });
+      const text = await extractTextFromFile(file);
+      if (!text || text.trim().length < 10) {
+        throw new Error("No readable text found in this document.");
+      }
+      await updateDocText({ data: { id: document.id, extracted_text: text } });
+      window.location.reload();
+    } catch (e) {
+      setExtractError(e instanceof Error ? e.message : "Extraction failed");
+    }
+    setIsExtracting(false);
   };
 
   if (!document) {
