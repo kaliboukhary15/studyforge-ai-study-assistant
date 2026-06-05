@@ -80,8 +80,8 @@ function UploadPage() {
           },
         });
 
-        // Extract text
         try {
+          const { extractTextFromFile } = await import("@/lib/document-parser");
           const extractedText = await extractTextFromFile(file);
           if (document?.id) {
             await updateDocText({
