@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { getDocument } from "@/lib/documents.functions";
 import { getSummaries, generateStudyMaterial, saveSummaryNotes } from "@/lib/study.functions";
 import { updateDocumentText } from "@/lib/documents.functions";
-import { extractTextFromFile } from "@/lib/document-parser";
 import { supabase } from "@/integrations/supabase/client";
 import { MermaidDiagram } from "@/components/mermaid-diagram";
 import {
@@ -127,6 +126,7 @@ function StudyPage() {
         .download(document.storage_path);
       if (error) throw error;
       const file = new File([data], document.filename, { type: data.type });
+      const { extractTextFromFile } = await import("@/lib/document-parser");
       const text = await extractTextFromFile(file);
       if (!text || text.trim().length < 10) {
         throw new Error("No readable text found in this document.");
