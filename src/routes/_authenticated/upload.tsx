@@ -4,7 +4,6 @@ import { useDropzone } from "react-dropzone";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { createDocument, updateDocumentText } from "@/lib/documents.functions";
-import { extractTextFromFile } from "@/lib/document-parser";
 import {
   Upload,
   FileText,
@@ -81,8 +80,8 @@ function UploadPage() {
           },
         });
 
-        // Extract text
         try {
+          const { extractTextFromFile } = await import("@/lib/document-parser");
           const extractedText = await extractTextFromFile(file);
           if (document?.id) {
             await updateDocText({
