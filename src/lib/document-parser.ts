@@ -1,9 +1,10 @@
 import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import mammoth from "mammoth";
 import JSZip from "jszip";
 
-// Set worker for pdfjs
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Bundle worker locally to avoid CDN version mismatches
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const TEXT_EXTENSIONS = new Set([
   "txt", "md", "markdown", "csv", "tsv", "json", "xml", "yaml", "yml",
