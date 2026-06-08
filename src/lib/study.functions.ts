@@ -215,50 +215,49 @@ If the language is Arabic, write right-to-left natural prose (the renderer handl
         : ""
     }`;
 
-    const { experimental_output: output } = await generateText({
-      model,
-      experimental_output: Output.object({
-        schema: z.object({
-          subject: z.string().describe("Detected subject area, e.g. Mathematics, Programming, Databases, Networking, Physics, Accounting, Business/MIS, Statistics, etc."),
-          summary: z.string().describe("A concise 3-5 paragraph summary"),
-          explanation: z.string().describe("Tutor-style explanation of the main concepts, written in markdown. Teach, don't just summarize."),
-          key_concepts: z.array(
-            z.object({ term: z.string(), definition: z.string() })
-          ),
-          examples: z.array(
-            z.object({
-              title: z.string(),
-              kind: z.string().describe("worked_problem | code | sql | scenario | calculation | trace"),
-              language: z.string().optional().describe("For code/sql examples, the language (e.g. python, javascript, sql)"),
-              content: z.string().describe("The example body in markdown. For worked problems show every step. For code include sample input/output. For SQL include sample tables."),
-              common_mistakes: z.array(z.string()).optional(),
-              alternative_methods: z.array(z.string()).optional(),
-            })
-          ).min(2).describe("At least 2-4 practical, subject-appropriate examples (worked solutions, code, SQL, scenarios, etc.)."),
-          analogies: z.array(
-            z.object({ concept: z.string(), analogy: z.string() })
-          ).describe("Real-world analogies that make difficult concepts intuitive."),
-          visuals: z.array(
-            z.object({
-              title: z.string(),
-              description: z.string(),
-              mermaid: z.string().describe("A valid Mermaid.js diagram (flowchart, sequenceDiagram, erDiagram, classDiagram, graph, etc.) that illustrates a concept from the document."),
-            })
-          ).describe("1-3 Mermaid diagrams illustrating processes, relationships, or architectures from the material."),
-          practice: z.array(
-            z.object({
-              question: z.string(),
-              difficulty: z.enum(["easy", "medium", "hard"]),
-              answer: z.string(),
-              explanation: z.string(),
-            })
-          ).min(3).describe("3-5 practice exercises with answers and explanations."),
-          comprehension_check: z.object({
+    const StudySchema = z.object({
+      subject: z.string(),
+      summary: z.string(),
+      explanation: z.string(),
+      key_concepts: z.array(z.object({ term: z.string(), definition: z.string() })).default([]),
+      examples: z
+        .array(
+          z.object({
+            title: z.string(),
+            kind: z.string(),
+            language: z.string().optional(),
+            content: z.string(),
+            common_mistakes: z.array(z.string()).optional(),
+            alternative_methods: z.array(z.string()).optional(),
+          })
+        )
+        .default([]),
+      analogies: z
+        .array(z.object({ concept: z.string(), analogy: z.string() }))
+        .default([]),
+      visuals: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string(),
+            mermaid: z.string(),
+          })
+        )
+        .default([]),
+      practice: z
+        .array(
+          z.object({
             question: z.string(),
+            difficulty: z.enum(["easy", "medium", "hard"]),
             answer: z.string(),
-          }).describe("A quick comprehension question to check understanding after reading."),
-        }),
-      }),
+            explanation: z.string(),
+          })
+        )
+        .default([]),
+    });
+
+    const { text: rawText } = await generateText({
+      model,
       prompt: `You are an Adaptive Personal Tutor.
 
 Detected subject: ${subject}
@@ -277,11 +276,30 @@ Rules for practice: practice items MUST match the subject playbook (e.g. compute
 
 For visuals, prefer Mermaid flowcharts, sequence diagrams, ER diagrams, or class diagrams. Use plain text labels only — NO HTML, NO <img>, NO <script>, NO inline styles, no emojis, no markdown fences around the diagram. Keep node labels short.
 
-Return strictly valid JSON matching the schema.
+Return STRICTLY a single valid JSON object (no prose, no markdown fences) with exactly these keys:
+{
+  "subject": string,                                    // set to "${subject}"
+  "summary": string,                                    // 3-5 paragraph summary
+  "explanation": string,                                // tutor-style markdown explanation
+  "key_concepts": [{ "term": string, "definition": string }],
+  "examples": [{                                        // 2-4 items
+    "title": string,
+    "kind": "worked_problem"|"code"|"sql"|"scenario"|"calculation"|"trace",
+    "language": string?,                                // for code/sql
+    "content": string,
+    "common_mistakes": string[]?,
+    "alternative_methods": string[]?
+  }],
+  "analogies": [{ "concept": string, "analogy": string }],
+  "visuals": [{ "title": string, "description": string, "mermaid": string }],  // 1-3 items, plain Mermaid only
+  "practice": [{ "question": string, "difficulty": "easy"|"medium"|"hard", "answer": string, "explanation": string }]  // 3-5 items
+}
 
 Document:
 ${text}`,
     });
+
+    const output = parseJsonObject(rawText, StudySchema);
 
     // Save to database
     const { data: summary, error } = await supabase
