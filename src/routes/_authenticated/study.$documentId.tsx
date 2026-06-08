@@ -186,6 +186,30 @@ function StudyPage() {
     description: string;
     mermaid: string;
   }>;
+  const visualAnalysis = ((summary as { visual_analysis?: unknown })?.visual_analysis ?? []) as Array<{
+    title: string;
+    kind?: string;
+    page?: number | string;
+    description: string;
+    image_index?: number;
+  }>;
+  const formulas = ((summary as { formulas?: unknown })?.formulas ?? []) as Array<{
+    latex: string;
+    plain?: string;
+    explanation: string;
+  }>;
+  const tables = ((summary as { tables?: unknown })?.tables ?? []) as Array<{
+    title: string;
+    headers: string[];
+    rows: string[][];
+    explanation: string;
+  }>;
+  const processingNotes = ((summary as { processing_notes?: { notes?: string[]; mode?: string; attached_images?: number; saved_images?: number } })?.processing_notes ?? {}) as {
+    notes?: string[];
+    mode?: string;
+    attached_images?: number;
+    saved_images?: number;
+  };
   const practice = (summary?.practice ?? []) as Array<{
     question: string;
     difficulty: string;
