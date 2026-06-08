@@ -317,7 +317,12 @@ function StudyPage() {
           {genError && (
             <p className="mt-3 text-sm text-destructive">{genError}</p>
           )}
-          {document.extracted_text ? (
+          {(() => {
+            const ext = (document.file_type || document.filename?.split(".").pop() || "").toLowerCase();
+            const isBinaryVisual =
+              ext === "pdf" || ["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext);
+            return document.extracted_text || isBinaryVisual;
+          })() ? (
             <button
               onClick={handleGenerate}
               className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
