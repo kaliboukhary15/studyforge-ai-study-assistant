@@ -625,3 +625,30 @@ export const getQuizAttempts = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return { attempts: attempts || [] };
   });
+
+// List extracted images for a document, with short-lived signed URLs.
+export const getDocumentImages = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ document_id: z.string().uuid() }).parse(input)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: rows, error } = await supabase
+      .from("document_images")
+      .select("id, storage_path, caption, ai_description, kind, ordinal, page_number")
+      .eq("document_id", data.document_id)
+      .eq("user_id", userId)
+      .order("ordinal", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    const images = await Promise.all(
+      (rows ?? []).map(async (r) => {
+        const { data: signed } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(r.storage_path, 60 * 60);
+        return { ...r, url: signed?.signedUrl ?? null };
+      })
+    );
+    return { images };
+  });
