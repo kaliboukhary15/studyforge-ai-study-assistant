@@ -286,6 +286,36 @@ If the language is Arabic, write right-to-left natural prose (the renderer handl
           })
         )
         .default([]),
+      visual_analysis: z
+        .array(
+          z.object({
+            title: z.string(),
+            kind: z.string().optional(),
+            page: z.union([z.number(), z.string()]).optional(),
+            description: z.string(),
+            image_index: z.number().int().optional(),
+          })
+        )
+        .default([]),
+      formulas: z
+        .array(
+          z.object({
+            latex: z.string(),
+            plain: z.string().optional(),
+            explanation: z.string(),
+          })
+        )
+        .default([]),
+      tables: z
+        .array(
+          z.object({
+            title: z.string(),
+            headers: z.array(z.string()).default([]),
+            rows: z.array(z.array(z.string())).default([]),
+            explanation: z.string(),
+          })
+        )
+        .default([]),
       practice: z
         .array(
           z.object({
