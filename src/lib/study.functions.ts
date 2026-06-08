@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { generateText } from "ai";
+import { buildMultimodalContent, persistExtractedImages } from "./multimodal-content.server";
 import { z } from "zod";
 
 // Extract and parse a JSON object from a model response that may include
