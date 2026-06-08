@@ -400,23 +400,23 @@ export const generateQuiz = createServerFn({ method: "POST" })
     const quizLang = quickDetectLanguage(doc.extracted_text);
     const quizLangLabel = LANGUAGE_LABELS[quizLang] ?? "English";
 
-    const { experimental_output: output } = await generateText({
-      model,
-      experimental_output: Output.object({
-        schema: z.object({
-          questions: z.array(
-            z.object({
-              question: z.string(),
-              type: z.enum(["multiple_choice", "true_false"]),
-              options: z.array(z.string()).optional(),
-              correct_answer: z.string(),
-              explanation: z.string(),
-            })
-          ),
-        }),
-      }),
-      prompt: `Create a quiz with 10 questions from the document below. Mix multiple choice (4 options) and true/false. Write ALL questions, options, correct_answer values, and explanations in ${quizLangLabel} (preserve standard technical terminology in its original form). Return JSON {questions:[{question,type,options?,correct_answer,explanation}]}.\n\nDocument:\n${doc.extracted_text.slice(0, 15000)}`,
+    const QuizSchema = z.object({
+      questions: z.array(
+        z.object({
+          question: z.string(),
+          type: z.enum(["multiple_choice", "true_false"]),
+          options: z.array(z.string()).optional(),
+          correct_answer: z.string(),
+          explanation: z.string(),
+        })
+      ),
     });
+
+    const { text: rawQuiz } = await generateText({
+      model,
+      prompt: `Create a quiz with 10 questions from the document below. Mix multiple choice (4 options) and true/false. Write ALL questions, options, correct_answer values, and explanations in ${quizLangLabel} (preserve standard technical terminology in its original form).\n\nReturn STRICTLY a single valid JSON object (no prose, no markdown fences) of the form:\n{"questions":[{"question":string,"type":"multiple_choice"|"true_false","options":string[]?,"correct_answer":string,"explanation":string}]}\n\nDocument:\n${doc.extracted_text.slice(0, 15000)}`,
+    });
+    const output = parseJsonObject(rawQuiz, QuizSchema);
 
     const { data: quiz, error } = await supabase
       .from("quizzes")
