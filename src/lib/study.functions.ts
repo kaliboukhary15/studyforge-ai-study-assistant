@@ -328,9 +328,10 @@ If the language is Arabic, write right-to-left natural prose (the renderer handl
         .default([]),
     });
 
-    const { text: rawText } = await generateText({
-      model,
-      prompt: `You are an Adaptive Personal Tutor.
+    const attachedImageCount = built.parts.filter((p) => p.type === "image").length;
+    const hasPdf = built.parts.some((p) => p.type === "file");
+
+    const instructions = `You are an Adaptive Personal Tutor with strong visual reasoning.
 
 Detected subject: ${subject}
 Subject playbook (follow strictly when choosing example/practice formats):
@@ -346,32 +347,84 @@ Rules for examples: every example MUST follow the subject playbook above. Do not
 
 Rules for practice: practice items MUST match the subject playbook (e.g. compute-and-show for math, write-the-query for databases, trace-the-algorithm for algorithms).
 
+VISUAL CONTENT — treat images, diagrams, charts, screenshots, tables, and formulas as first-class learning material:
+- ${hasPdf ? "The attached PDF contains text AND embedded visuals (diagrams, screenshots, scanned figures). Read both." : "No PDF attached."}
+- ${attachedImageCount > 0 ? `${attachedImageCount} image(s) are attached in order (image_index 1..${attachedImageCount}).` : "No standalone images attached."}
+- For every meaningful diagram/chart/table/screenshot/figure, add a "visual_analysis" entry with title, kind (diagram|chart|table|screenshot|figure|er_diagram|uml|flowchart|network|formula), page if known, a thorough description (relationships, data flow, processes, network/db connections), and image_index pointing to the attached image (1-based) when applicable.
+- Detect mathematical formulas (in text OR images) and put them in "formulas" with LaTeX, a plain reading, and an explanation. Generate at least one solved example when relevant.
+- Extract any informative table into "tables" with headers, rows, and an explanation of the data.
+- Apply OCR-level reading on images and scanned PDF pages. Support any language found.
+- Generate practice questions that reference visuals when present (e.g. "Explain the topology", "Identify relationships in the ER diagram").
+
 For visuals, prefer Mermaid flowcharts, sequence diagrams, ER diagrams, or class diagrams. Use plain text labels only — NO HTML, NO <img>, NO <script>, NO inline styles, no emojis, no markdown fences around the diagram. Keep node labels short.
 
 Return STRICTLY a single valid JSON object (no prose, no markdown fences) with exactly these keys:
 {
-  "subject": string,                                    // set to "${subject}"
-  "summary": string,                                    // 3-5 paragraph summary
-  "explanation": string,                                // tutor-style markdown explanation
+  "subject": string,
+  "summary": string,
+  "explanation": string,
   "key_concepts": [{ "term": string, "definition": string }],
-  "examples": [{                                        // 2-4 items
-    "title": string,
-    "kind": "worked_problem"|"code"|"sql"|"scenario"|"calculation"|"trace",
-    "language": string?,                                // for code/sql
-    "content": string,
-    "common_mistakes": string[]?,
-    "alternative_methods": string[]?
-  }],
+  "examples": [{ "title": string, "kind": "worked_problem"|"code"|"sql"|"scenario"|"calculation"|"trace", "language": string?, "content": string, "common_mistakes": string[]?, "alternative_methods": string[]? }],
   "analogies": [{ "concept": string, "analogy": string }],
-  "visuals": [{ "title": string, "description": string, "mermaid": string }],  // 1-3 items, plain Mermaid only
-  "practice": [{ "question": string, "difficulty": "easy"|"medium"|"hard", "answer": string, "explanation": string }]  // 3-5 items
-}
+  "visuals": [{ "title": string, "description": string, "mermaid": string }],
+  "visual_analysis": [{ "title": string, "kind": string?, "page": (number|string)?, "description": string, "image_index": number? }],
+  "formulas": [{ "latex": string, "plain": string?, "explanation": string }],
+  "tables": [{ "title": string, "headers": string[], "rows": string[][], "explanation": string }],
+  "practice": [{ "question": string, "difficulty": "easy"|"medium"|"hard", "answer": string, "explanation": string }]
+}`;
 
-Document:
-${text}`,
+    const userParts: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; image: Uint8Array }
+      | { type: "file"; data: Uint8Array; mediaType: string }
+    > = [{ type: "text", text: instructions }];
+    for (const p of built.parts) userParts.push(p);
+    if (userParts.length === 1) {
+      userParts.push({ type: "text", text: `Filename: ${doc.filename}` });
+    }
+
+    const { text: rawText } = await generateText({
+      model,
+      messages: [{ role: "user", content: userParts }],
     });
 
     const output = parseJsonObject(rawText, StudySchema);
+
+    // Persist embedded images we extracted ourselves (PPTX/DOCX) with AI captions.
+    let savedImagesCount = 0;
+    if (built.images.length > 0) {
+      const descByIndex = new Map<number, { caption?: string; description?: string; kind?: string }>();
+      const offsetForBuiltImages = built.parts.findIndex((p) => p.type === "image");
+      for (const va of output.visual_analysis ?? []) {
+        if (typeof va.image_index === "number" && va.image_index >= 1) {
+          // Built images are the only image parts in pptx/docx flows, so map directly
+          // when offset matches the start of image parts.
+          const arrayIdx = va.image_index - 1;
+          if (offsetForBuiltImages >= 0 && arrayIdx < built.images.length) {
+            descByIndex.set(arrayIdx, {
+              caption: va.title,
+              description: va.description,
+              kind: va.kind,
+            });
+          }
+        }
+      }
+      const descriptions = built.images.map((_, i) => descByIndex.get(i) ?? {});
+      try {
+        const saved = await persistExtractedImages(
+          supabase,
+          userId,
+          data.document_id,
+          built.images,
+          descriptions,
+        );
+        savedImagesCount = saved.length;
+      } catch (e) {
+        built.notes.push(
+          `Image persistence failed: ${e instanceof Error ? e.message : "unknown"}`,
+        );
+      }
+    }
 
     // Save to database
     const { data: summary, error } = await supabase
@@ -389,6 +442,15 @@ ${text}`,
         examples: output.examples,
         analogies: output.analogies,
         visuals: output.visuals,
+        visual_analysis: output.visual_analysis,
+        formulas: output.formulas,
+        tables: output.tables,
+        processing_notes: {
+          mode: built.mode,
+          notes: built.notes,
+          attached_images: attachedImageCount,
+          saved_images: savedImagesCount,
+        },
         practice: output.practice,
       })
       .select()
