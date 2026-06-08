@@ -4,7 +4,12 @@ import { queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { getDocument } from "@/lib/documents.functions";
-import { getSummaries, generateStudyMaterial, saveSummaryNotes } from "@/lib/study.functions";
+import {
+  getSummaries,
+  generateStudyMaterial,
+  saveSummaryNotes,
+  getDocumentImages,
+} from "@/lib/study.functions";
 import { updateDocumentText } from "@/lib/documents.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { MermaidDiagram } from "@/components/mermaid-diagram";
@@ -32,6 +37,12 @@ const summariesQueryOptions = (documentId: string) =>
   queryOptions({
     queryKey: ["summaries", documentId],
     queryFn: () => getSummaries({ data: { document_id: documentId } }),
+  });
+
+const documentImagesQueryOptions = (documentId: string) =>
+  queryOptions({
+    queryKey: ["document-images", documentId],
+    queryFn: () => getDocumentImages({ data: { document_id: documentId } }),
   });
 
 export const Route = createFileRoute("/_authenticated/study/$documentId")({
