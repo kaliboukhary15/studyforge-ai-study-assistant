@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      document_images: {
+        Row: {
+          ai_description: string | null
+          caption: string | null
+          created_at: string
+          document_id: string
+          id: string
+          kind: string | null
+          ordinal: number
+          page_number: number | null
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          ai_description?: string | null
+          caption?: string | null
+          created_at?: string
+          document_id: string
+          id?: string
+          kind?: string | null
+          ordinal?: number
+          page_number?: number | null
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          ai_description?: string | null
+          caption?: string | null
+          created_at?: string
+          document_id?: string
+          id?: string
+          kind?: string | null
+          ordinal?: number
+          page_number?: number | null
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_images_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
@@ -161,16 +208,20 @@ export type Database = {
           document_id: string
           examples: Json | null
           explanation: string | null
+          formulas: Json
           id: string
           key_concepts: Json | null
           language: string | null
           level: string
           notes: string | null
           practice: Json | null
+          processing_notes: Json
           subject: string | null
           summary: string | null
+          tables: Json
           updated_at: string
           user_id: string
+          visual_analysis: Json
           visuals: Json | null
         }
         Insert: {
@@ -180,16 +231,20 @@ export type Database = {
           document_id: string
           examples?: Json | null
           explanation?: string | null
+          formulas?: Json
           id?: string
           key_concepts?: Json | null
           language?: string | null
           level?: string
           notes?: string | null
           practice?: Json | null
+          processing_notes?: Json
           subject?: string | null
           summary?: string | null
+          tables?: Json
           updated_at?: string
           user_id: string
+          visual_analysis?: Json
           visuals?: Json | null
         }
         Update: {
@@ -199,16 +254,20 @@ export type Database = {
           document_id?: string
           examples?: Json | null
           explanation?: string | null
+          formulas?: Json
           id?: string
           key_concepts?: Json | null
           language?: string | null
           level?: string
           notes?: string | null
           practice?: Json | null
+          processing_notes?: Json
           subject?: string | null
           summary?: string | null
+          tables?: Json
           updated_at?: string
           user_id?: string
+          visual_analysis?: Json
           visuals?: Json | null
         }
         Relationships: [

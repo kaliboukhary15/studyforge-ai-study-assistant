@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { generateText } from "ai";
+import { buildMultimodalContent, persistExtractedImages } from "./multimodal-content.server";
 import { z } from "zod";
 
 // Extract and parse a JSON object from a model response that may include
@@ -200,16 +201,22 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
     // Ownership check + load text server-side (never trust client text)
     const { data: doc, error: docErr } = await supabase
       .from("documents")
-      .select("extracted_text")
+      .select("extracted_text, storage_path, file_type, filename")
       .eq("id", data.document_id)
       .eq("user_id", userId)
       .maybeSingle();
     if (docErr) throw new Error(docErr.message);
     if (!doc) throw new Error("Document not found or access denied");
-    if (!doc.extracted_text) throw new Error("Document has no extracted text yet");
+    const fileExt = (doc.file_type || doc.filename.split(".").pop() || "").toLowerCase();
+    const isBinaryVisual =
+      fileExt === "pdf" || ["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(fileExt);
+    if (!doc.extracted_text && !isBinaryVisual) {
+      throw new Error("Document has no extracted text yet");
+    }
 
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-2.5-flash");
+    // Gemini 2.5 Pro for multimodal visual understanding (diagrams, formulas, OCR).
+    const model = gateway("google/gemini-2.5-pro");
 
     const level = data.level ?? "intermediate";
     const levelGuide: Record<string, string> = {
@@ -218,10 +225,20 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
       advanced: "Use precise technical terminology and industry vocabulary. Go deep into nuances, edge cases, and underlying mechanics.",
     };
 
-    const text = doc.extracted_text.slice(0, 10000);
+    const text = (doc.extracted_text ?? "").slice(0, 10000);
+
+    // Build multimodal content from the original file (PDF/image bytes, PPTX/DOCX
+    // embedded images, or plain text fallback).
+    const built = await buildMultimodalContent({
+      supabase,
+      storagePath: doc.storage_path,
+      fileType: fileExt,
+      extractedText: doc.extracted_text ?? null,
+      filename: doc.filename,
+    });
 
     // Quick heuristic subject detection (no extra AI roundtrip)
-    const detectedRaw = quickDetectSubject(text);
+    const detectedRaw = quickDetectSubject(text || doc.filename);
     const { canonical: subject, guide: playbook } = playbookFor(detectedRaw);
 
     // Language detection — explicit override wins, otherwise auto-detect
@@ -269,6 +286,36 @@ If the language is Arabic, write right-to-left natural prose (the renderer handl
           })
         )
         .default([]),
+      visual_analysis: z
+        .array(
+          z.object({
+            title: z.string(),
+            kind: z.string().optional(),
+            page: z.union([z.number(), z.string()]).optional(),
+            description: z.string(),
+            image_index: z.number().int().optional(),
+          })
+        )
+        .default([]),
+      formulas: z
+        .array(
+          z.object({
+            latex: z.string(),
+            plain: z.string().optional(),
+            explanation: z.string(),
+          })
+        )
+        .default([]),
+      tables: z
+        .array(
+          z.object({
+            title: z.string(),
+            headers: z.array(z.string()).default([]),
+            rows: z.array(z.array(z.string())).default([]),
+            explanation: z.string(),
+          })
+        )
+        .default([]),
       practice: z
         .array(
           z.object({
@@ -281,9 +328,10 @@ If the language is Arabic, write right-to-left natural prose (the renderer handl
         .default([]),
     });
 
-    const { text: rawText } = await generateText({
-      model,
-      prompt: `You are an Adaptive Personal Tutor.
+    const attachedImageCount = built.parts.filter((p) => p.type === "image").length;
+    const hasPdf = built.parts.some((p) => p.type === "file");
+
+    const instructions = `You are an Adaptive Personal Tutor with strong visual reasoning.
 
 Detected subject: ${subject}
 Subject playbook (follow strictly when choosing example/practice formats):
@@ -299,32 +347,84 @@ Rules for examples: every example MUST follow the subject playbook above. Do not
 
 Rules for practice: practice items MUST match the subject playbook (e.g. compute-and-show for math, write-the-query for databases, trace-the-algorithm for algorithms).
 
+VISUAL CONTENT — treat images, diagrams, charts, screenshots, tables, and formulas as first-class learning material:
+- ${hasPdf ? "The attached PDF contains text AND embedded visuals (diagrams, screenshots, scanned figures). Read both." : "No PDF attached."}
+- ${attachedImageCount > 0 ? `${attachedImageCount} image(s) are attached in order (image_index 1..${attachedImageCount}).` : "No standalone images attached."}
+- For every meaningful diagram/chart/table/screenshot/figure, add a "visual_analysis" entry with title, kind (diagram|chart|table|screenshot|figure|er_diagram|uml|flowchart|network|formula), page if known, a thorough description (relationships, data flow, processes, network/db connections), and image_index pointing to the attached image (1-based) when applicable.
+- Detect mathematical formulas (in text OR images) and put them in "formulas" with LaTeX, a plain reading, and an explanation. Generate at least one solved example when relevant.
+- Extract any informative table into "tables" with headers, rows, and an explanation of the data.
+- Apply OCR-level reading on images and scanned PDF pages. Support any language found.
+- Generate practice questions that reference visuals when present (e.g. "Explain the topology", "Identify relationships in the ER diagram").
+
 For visuals, prefer Mermaid flowcharts, sequence diagrams, ER diagrams, or class diagrams. Use plain text labels only — NO HTML, NO <img>, NO <script>, NO inline styles, no emojis, no markdown fences around the diagram. Keep node labels short.
 
 Return STRICTLY a single valid JSON object (no prose, no markdown fences) with exactly these keys:
 {
-  "subject": string,                                    // set to "${subject}"
-  "summary": string,                                    // 3-5 paragraph summary
-  "explanation": string,                                // tutor-style markdown explanation
+  "subject": string,
+  "summary": string,
+  "explanation": string,
   "key_concepts": [{ "term": string, "definition": string }],
-  "examples": [{                                        // 2-4 items
-    "title": string,
-    "kind": "worked_problem"|"code"|"sql"|"scenario"|"calculation"|"trace",
-    "language": string?,                                // for code/sql
-    "content": string,
-    "common_mistakes": string[]?,
-    "alternative_methods": string[]?
-  }],
+  "examples": [{ "title": string, "kind": "worked_problem"|"code"|"sql"|"scenario"|"calculation"|"trace", "language": string?, "content": string, "common_mistakes": string[]?, "alternative_methods": string[]? }],
   "analogies": [{ "concept": string, "analogy": string }],
-  "visuals": [{ "title": string, "description": string, "mermaid": string }],  // 1-3 items, plain Mermaid only
-  "practice": [{ "question": string, "difficulty": "easy"|"medium"|"hard", "answer": string, "explanation": string }]  // 3-5 items
-}
+  "visuals": [{ "title": string, "description": string, "mermaid": string }],
+  "visual_analysis": [{ "title": string, "kind": string?, "page": (number|string)?, "description": string, "image_index": number? }],
+  "formulas": [{ "latex": string, "plain": string?, "explanation": string }],
+  "tables": [{ "title": string, "headers": string[], "rows": string[][], "explanation": string }],
+  "practice": [{ "question": string, "difficulty": "easy"|"medium"|"hard", "answer": string, "explanation": string }]
+}`;
 
-Document:
-${text}`,
+    const userParts: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; image: Uint8Array }
+      | { type: "file"; data: Uint8Array; mediaType: string }
+    > = [{ type: "text", text: instructions }];
+    for (const p of built.parts) userParts.push(p);
+    if (userParts.length === 1) {
+      userParts.push({ type: "text", text: `Filename: ${doc.filename}` });
+    }
+
+    const { text: rawText } = await generateText({
+      model,
+      messages: [{ role: "user", content: userParts }],
     });
 
     const output = parseJsonObject(rawText, StudySchema);
+
+    // Persist embedded images we extracted ourselves (PPTX/DOCX) with AI captions.
+    let savedImagesCount = 0;
+    if (built.images.length > 0) {
+      const descByIndex = new Map<number, { caption?: string; description?: string; kind?: string }>();
+      const offsetForBuiltImages = built.parts.findIndex((p) => p.type === "image");
+      for (const va of output.visual_analysis ?? []) {
+        if (typeof va.image_index === "number" && va.image_index >= 1) {
+          // Built images are the only image parts in pptx/docx flows, so map directly
+          // when offset matches the start of image parts.
+          const arrayIdx = va.image_index - 1;
+          if (offsetForBuiltImages >= 0 && arrayIdx < built.images.length) {
+            descByIndex.set(arrayIdx, {
+              caption: va.title,
+              description: va.description,
+              kind: va.kind,
+            });
+          }
+        }
+      }
+      const descriptions = built.images.map((_, i) => descByIndex.get(i) ?? {});
+      try {
+        const saved = await persistExtractedImages(
+          supabase,
+          userId,
+          data.document_id,
+          built.images,
+          descriptions,
+        );
+        savedImagesCount = saved.length;
+      } catch (e) {
+        built.notes.push(
+          `Image persistence failed: ${e instanceof Error ? e.message : "unknown"}`,
+        );
+      }
+    }
 
     // Save to database
     const { data: summary, error } = await supabase
@@ -342,6 +442,15 @@ ${text}`,
         examples: output.examples,
         analogies: output.analogies,
         visuals: output.visuals,
+        visual_analysis: output.visual_analysis,
+        formulas: output.formulas,
+        tables: output.tables,
+        processing_notes: {
+          mode: built.mode,
+          notes: built.notes,
+          attached_images: attachedImageCount,
+          saved_images: savedImagesCount,
+        },
         practice: output.practice,
       })
       .select()
@@ -515,4 +624,31 @@ export const getQuizAttempts = createServerFn({ method: "GET" })
 
     if (error) throw new Error(error.message);
     return { attempts: attempts || [] };
+  });
+
+// List extracted images for a document, with short-lived signed URLs.
+export const getDocumentImages = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ document_id: z.string().uuid() }).parse(input)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: rows, error } = await supabase
+      .from("document_images")
+      .select("id, storage_path, caption, ai_description, kind, ordinal, page_number")
+      .eq("document_id", data.document_id)
+      .eq("user_id", userId)
+      .order("ordinal", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    const images = await Promise.all(
+      (rows ?? []).map(async (r) => {
+        const { data: signed } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(r.storage_path, 60 * 60);
+        return { ...r, url: signed?.signedUrl ?? null };
+      })
+    );
+    return { images };
   });

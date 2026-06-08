@@ -4,7 +4,12 @@ import { queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { getDocument } from "@/lib/documents.functions";
-import { getSummaries, generateStudyMaterial, saveSummaryNotes } from "@/lib/study.functions";
+import {
+  getSummaries,
+  generateStudyMaterial,
+  saveSummaryNotes,
+  getDocumentImages,
+} from "@/lib/study.functions";
 import { updateDocumentText } from "@/lib/documents.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { MermaidDiagram } from "@/components/mermaid-diagram";
@@ -34,6 +39,12 @@ const summariesQueryOptions = (documentId: string) =>
     queryFn: () => getSummaries({ data: { document_id: documentId } }),
   });
 
+const documentImagesQueryOptions = (documentId: string) =>
+  queryOptions({
+    queryKey: ["document-images", documentId],
+    queryFn: () => getDocumentImages({ data: { document_id: documentId } }),
+  });
+
 export const Route = createFileRoute("/_authenticated/study/$documentId")({
   head: () => ({
     meta: [
@@ -52,9 +63,20 @@ function StudyPage() {
   const { data: summariesData, refetch: refetchSummaries } = useSuspenseQuery(
     summariesQueryOptions(documentId)
   );
+  const { data: imagesData, refetch: refetchImages } = useSuspenseQuery(
+    documentImagesQueryOptions(documentId)
+  );
   const document = docData?.document;
   const summaries = summariesData?.summaries || [];
   const summary = summaries[0];
+  const extractedImages = (imagesData?.images ?? []) as Array<{
+    id: string;
+    url: string | null;
+    caption: string | null;
+    ai_description: string | null;
+    kind: string | null;
+    page_number: number | null;
+  }>;
 
   const generateMaterial = useServerFn(generateStudyMaterial);
   const saveNotes = useServerFn(saveSummaryNotes);
@@ -79,7 +101,12 @@ function StudyPage() {
   }, [summary?.id]);
 
   const handleGenerate = async () => {
-    if (!document?.extracted_text) return;
+    // Allow generation even without prior text extraction for PDFs/images
+    // (the server will analyze the original file multimodally).
+    const ext = (document?.file_type || document?.filename?.split(".").pop() || "").toLowerCase();
+    const isBinaryVisual =
+      ext === "pdf" || ["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext);
+    if (!document?.extracted_text && !isBinaryVisual) return;
     setIsGenerating(true);
     setGenError(null);
     try {
@@ -95,6 +122,7 @@ function StudyPage() {
         },
       });
       refetchSummaries();
+      refetchImages();
     } catch (e) {
       console.error(e);
       setGenError(e instanceof Error ? e.message : "Failed to generate study material");
@@ -164,6 +192,30 @@ function StudyPage() {
     description: string;
     mermaid: string;
   }>;
+  const visualAnalysis = ((summary as { visual_analysis?: unknown })?.visual_analysis ?? []) as Array<{
+    title: string;
+    kind?: string;
+    page?: number | string;
+    description: string;
+    image_index?: number;
+  }>;
+  const formulas = ((summary as { formulas?: unknown })?.formulas ?? []) as Array<{
+    latex: string;
+    plain?: string;
+    explanation: string;
+  }>;
+  const tables = ((summary as { tables?: unknown })?.tables ?? []) as Array<{
+    title: string;
+    headers: string[];
+    rows: string[][];
+    explanation: string;
+  }>;
+  const processingNotes = ((summary as { processing_notes?: { notes?: string[]; mode?: string; attached_images?: number; saved_images?: number } })?.processing_notes ?? {}) as {
+    notes?: string[];
+    mode?: string;
+    attached_images?: number;
+    saved_images?: number;
+  };
   const practice = (summary?.practice ?? []) as Array<{
     question: string;
     difficulty: string;
@@ -265,7 +317,12 @@ function StudyPage() {
           {genError && (
             <p className="mt-3 text-sm text-destructive">{genError}</p>
           )}
-          {document.extracted_text ? (
+          {(() => {
+            const ext = (document.file_type || document.filename?.split(".").pop() || "").toLowerCase();
+            const isBinaryVisual =
+              ext === "pdf" || ["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext);
+            return document.extracted_text || isBinaryVisual;
+          })() ? (
             <button
               onClick={handleGenerate}
               className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -464,20 +521,159 @@ function StudyPage() {
 
             {activeTab === "visuals" && (
               <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-foreground">Visual Learning</h2>
-                {visuals.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No diagrams available.</p>
-                ) : (
-                  visuals.map((v, i) => (
-                    <div key={i} className="rounded-xl border border-border bg-background p-4">
-                      <h3 className="font-semibold text-foreground">{v.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-0.5">{v.description}</p>
-                      <div className="mt-3 rounded-lg bg-muted/40 p-3">
-                        <MermaidDiagram chart={v.mermaid} id={`${summary.id}-${i}`} />
-                      </div>
-                    </div>
-                  ))
+                {(processingNotes.notes?.length ?? 0) > 0 && (
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                    <p className="font-semibold uppercase tracking-wide text-foreground mb-1">
+                      Processing report
+                    </p>
+                    <ul className="list-disc pl-5 space-y-0.5">
+                      {processingNotes.notes?.map((n, i) => <li key={i}>{n}</li>)}
+                    </ul>
+                  </div>
                 )}
+
+                {extractedImages.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Extracted Images</h2>
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                      {extractedImages.map((img) => (
+                        <figure key={img.id} className="rounded-xl border border-border bg-background p-3">
+                          {img.url ? (
+                            <img
+                              src={img.url}
+                              alt={img.caption ?? "Extracted figure"}
+                              className="w-full rounded-lg bg-muted object-contain max-h-64"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="h-40 rounded-lg bg-muted" />
+                          )}
+                          <figcaption className="mt-2 text-sm">
+                            <p className="font-medium text-foreground">{img.caption ?? "Figure"}</p>
+                            {img.kind && (
+                              <span className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                {img.kind}
+                              </span>
+                            )}
+                            {img.ai_description && (
+                              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                                {img.ai_description}
+                              </p>
+                            )}
+                          </figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {visualAnalysis.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Visual Analysis</h2>
+                    <div className="mt-2 grid gap-2">
+                      {visualAnalysis.map((v, i) => (
+                        <div key={i} className="rounded-xl border border-border bg-background p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="font-semibold text-foreground">{v.title}</h3>
+                            {v.kind && (
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                {v.kind}
+                              </span>
+                            )}
+                          </div>
+                          {v.page !== undefined && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">Page {String(v.page)}</p>
+                          )}
+                          <p className="mt-2 text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                            {v.description}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {formulas.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Formulas</h2>
+                    <div className="mt-2 grid gap-2">
+                      {formulas.map((f, i) => (
+                        <div key={i} className="rounded-xl border border-border bg-background p-4">
+                          <pre className="whitespace-pre-wrap break-words rounded-lg bg-muted/60 p-3 text-sm font-mono text-foreground">{f.latex}</pre>
+                          {f.plain && (
+                            <p className="mt-2 text-xs text-muted-foreground">Reads as: {f.plain}</p>
+                          )}
+                          <p className="mt-2 text-sm text-foreground leading-relaxed">{f.explanation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {tables.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Tables</h2>
+                    <div className="mt-2 space-y-3">
+                      {tables.map((t, i) => (
+                        <div key={i} className="rounded-xl border border-border bg-background p-4">
+                          <h3 className="font-semibold text-foreground">{t.title}</h3>
+                          <div className="mt-2 overflow-x-auto">
+                            <table className="w-full text-sm">
+                              {t.headers?.length > 0 && (
+                                <thead>
+                                  <tr>
+                                    {t.headers.map((h, j) => (
+                                      <th key={j} className="border-b border-border bg-muted/40 px-2 py-1.5 text-left font-medium text-foreground">
+                                        {h}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                              )}
+                              <tbody>
+                                {t.rows?.map((row, ri) => (
+                                  <tr key={ri}>
+                                    {row.map((cell, ci) => (
+                                      <td key={ci} className="border-b border-border/60 px-2 py-1.5 text-foreground">
+                                        {cell}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="mt-2 text-sm text-muted-foreground">{t.explanation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {visuals.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">AI-Generated Diagrams</h2>
+                    <div className="mt-2 space-y-3">
+                      {visuals.map((v, i) => (
+                        <div key={i} className="rounded-xl border border-border bg-background p-4">
+                          <h3 className="font-semibold text-foreground">{v.title}</h3>
+                          <p className="text-sm text-muted-foreground mt-0.5">{v.description}</p>
+                          <div className="mt-3 rounded-lg bg-muted/40 p-3">
+                            <MermaidDiagram chart={v.mermaid} id={`${summary.id}-${i}`} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {extractedImages.length === 0 &&
+                  visualAnalysis.length === 0 &&
+                  formulas.length === 0 &&
+                  tables.length === 0 &&
+                  visuals.length === 0 && (
+                    <p className="text-muted-foreground text-sm">No visual content detected.</p>
+                  )}
               </div>
             )}
 
