@@ -63,9 +63,20 @@ function StudyPage() {
   const { data: summariesData, refetch: refetchSummaries } = useSuspenseQuery(
     summariesQueryOptions(documentId)
   );
+  const { data: imagesData, refetch: refetchImages } = useSuspenseQuery(
+    documentImagesQueryOptions(documentId)
+  );
   const document = docData?.document;
   const summaries = summariesData?.summaries || [];
   const summary = summaries[0];
+  const extractedImages = (imagesData?.images ?? []) as Array<{
+    id: string;
+    url: string | null;
+    caption: string | null;
+    ai_description: string | null;
+    kind: string | null;
+    page_number: number | null;
+  }>;
 
   const generateMaterial = useServerFn(generateStudyMaterial);
   const saveNotes = useServerFn(saveSummaryNotes);
