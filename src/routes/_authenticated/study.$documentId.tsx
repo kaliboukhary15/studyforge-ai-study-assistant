@@ -101,7 +101,12 @@ function StudyPage() {
   }, [summary?.id]);
 
   const handleGenerate = async () => {
-    if (!document?.extracted_text) return;
+    // Allow generation even without prior text extraction for PDFs/images
+    // (the server will analyze the original file multimodally).
+    const ext = (document?.file_type || document?.filename?.split(".").pop() || "").toLowerCase();
+    const isBinaryVisual =
+      ext === "pdf" || ["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext);
+    if (!document?.extracted_text && !isBinaryVisual) return;
     setIsGenerating(true);
     setGenError(null);
     try {
@@ -117,6 +122,7 @@ function StudyPage() {
         },
       });
       refetchSummaries();
+      refetchImages();
     } catch (e) {
       console.error(e);
       setGenError(e instanceof Error ? e.message : "Failed to generate study material");
