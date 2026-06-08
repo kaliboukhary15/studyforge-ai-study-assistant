@@ -201,16 +201,22 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
     // Ownership check + load text server-side (never trust client text)
     const { data: doc, error: docErr } = await supabase
       .from("documents")
-      .select("extracted_text")
+      .select("extracted_text, storage_path, file_type, filename")
       .eq("id", data.document_id)
       .eq("user_id", userId)
       .maybeSingle();
     if (docErr) throw new Error(docErr.message);
     if (!doc) throw new Error("Document not found or access denied");
-    if (!doc.extracted_text) throw new Error("Document has no extracted text yet");
+    const fileExt = (doc.file_type || doc.filename.split(".").pop() || "").toLowerCase();
+    const isBinaryVisual =
+      fileExt === "pdf" || ["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(fileExt);
+    if (!doc.extracted_text && !isBinaryVisual) {
+      throw new Error("Document has no extracted text yet");
+    }
 
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-2.5-flash");
+    // Gemini 2.5 Pro for multimodal visual understanding (diagrams, formulas, OCR).
+    const model = gateway("google/gemini-2.5-pro");
 
     const level = data.level ?? "intermediate";
     const levelGuide: Record<string, string> = {
@@ -219,10 +225,20 @@ export const generateStudyMaterial = createServerFn({ method: "POST" })
       advanced: "Use precise technical terminology and industry vocabulary. Go deep into nuances, edge cases, and underlying mechanics.",
     };
 
-    const text = doc.extracted_text.slice(0, 10000);
+    const text = (doc.extracted_text ?? "").slice(0, 10000);
+
+    // Build multimodal content from the original file (PDF/image bytes, PPTX/DOCX
+    // embedded images, or plain text fallback).
+    const built = await buildMultimodalContent({
+      supabase,
+      storagePath: doc.storage_path,
+      fileType: fileExt,
+      extractedText: doc.extracted_text ?? null,
+      filename: doc.filename,
+    });
 
     // Quick heuristic subject detection (no extra AI roundtrip)
-    const detectedRaw = quickDetectSubject(text);
+    const detectedRaw = quickDetectSubject(text || doc.filename);
     const { canonical: subject, guide: playbook } = playbookFor(detectedRaw);
 
     // Language detection — explicit override wins, otherwise auto-detect
