@@ -4,6 +4,31 @@ import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { generateText } from "ai";
 import { z } from "zod";
 
+// Extract and parse a JSON object from a model response that may include
+// markdown fences or stray prose. Throws a descriptive error on failure.
+function parseJsonObject<T>(raw: string, schema: z.ZodType<T>): T {
+  let s = raw.trim();
+  // Strip ```json ... ``` fences if present
+  s = s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  const start = s.indexOf("{");
+  const end = s.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("AI response did not contain a JSON object");
+  }
+  let body = s.slice(start, end + 1);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    // Repair common issues: trailing commas, stray control chars
+    body = body
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+    parsed = JSON.parse(body);
+  }
+  return schema.parse(parsed);
+}
+
 const LevelEnum = z.enum(["beginner", "intermediate", "advanced"]);
 
 const LanguageEnum = z.enum([
