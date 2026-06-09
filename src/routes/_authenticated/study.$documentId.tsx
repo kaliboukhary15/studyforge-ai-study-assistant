@@ -97,6 +97,8 @@ function StudyPage() {
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});
+  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [submitted, setSubmitted] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (summary?.notes) setNotesDraft(summary.notes);
