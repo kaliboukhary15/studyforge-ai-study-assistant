@@ -768,7 +768,42 @@ function StudyPage() {
                           "bg-red-100 text-red-700"
                         }`}>{p.difficulty}</span>
                       </div>
-                      {revealed[i] ? (
+                      <div className="mt-3 space-y-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Your answer
+                        </label>
+                        <textarea
+                          value={userAnswers[i] ?? ""}
+                          onChange={(e) =>
+                            setUserAnswers((a) => ({ ...a, [i]: e.target.value }))
+                          }
+                          disabled={submitted[i]}
+                          placeholder="Type your answer here..."
+                          rows={3}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70"
+                        />
+                        {!submitted[i] && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setSubmitted((s) => ({ ...s, [i]: true }));
+                                setRevealed((r) => ({ ...r, [i]: true }));
+                              }}
+                              disabled={!(userAnswers[i] ?? "").trim()}
+                              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                            >
+                              Submit answer
+                            </button>
+                            <button
+                              onClick={() => setRevealed((r) => ({ ...r, [i]: true }))}
+                              className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+                            >
+                              Skip & reveal
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {revealed[i] && (
                         <div className="mt-3 space-y-2">
                           <div className="rounded-lg bg-primary/5 p-3">
                             <p className="text-xs font-semibold uppercase tracking-wide text-primary">Answer</p>
@@ -778,14 +813,27 @@ function StudyPage() {
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Explanation</p>
                             <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{p.explanation}</p>
                           </div>
+                          {submitted[i] && (
+                            <button
+                              onClick={() => {
+                                setSubmitted((s) => {
+                                  const n = { ...s };
+                                  delete n[i];
+                                  return n;
+                                });
+                                setRevealed((r) => {
+                                  const n = { ...r };
+                                  delete n[i];
+                                  return n;
+                                });
+                                setUserAnswers((a) => ({ ...a, [i]: "" }));
+                              }}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              Try again
+                            </button>
+                          )}
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => setRevealed((r) => ({ ...r, [i]: true }))}
-                          className="mt-3 text-sm text-primary hover:underline"
-                        >
-                          Reveal answer
-                        </button>
                       )}
                     </div>
                   ))
