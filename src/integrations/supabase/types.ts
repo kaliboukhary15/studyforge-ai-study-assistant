@@ -204,6 +204,7 @@ export type Database = {
         Row: {
           analogies: Json | null
           bilingual: Json | null
+          comprehension_check: Json
           created_at: string
           document_id: string
           examples: Json | null
@@ -211,11 +212,15 @@ export type Database = {
           formulas: Json
           id: string
           key_concepts: Json | null
+          key_points: Json
           language: string | null
           level: string
+          memory_aids: Json
           notes: string | null
           practice: Json | null
           processing_notes: Json
+          quick_overview: string | null
+          steps: Json
           subject: string | null
           summary: string | null
           tables: Json
@@ -227,6 +232,7 @@ export type Database = {
         Insert: {
           analogies?: Json | null
           bilingual?: Json | null
+          comprehension_check?: Json
           created_at?: string
           document_id: string
           examples?: Json | null
@@ -234,11 +240,15 @@ export type Database = {
           formulas?: Json
           id?: string
           key_concepts?: Json | null
+          key_points?: Json
           language?: string | null
           level?: string
+          memory_aids?: Json
           notes?: string | null
           practice?: Json | null
           processing_notes?: Json
+          quick_overview?: string | null
+          steps?: Json
           subject?: string | null
           summary?: string | null
           tables?: Json
@@ -250,6 +260,7 @@ export type Database = {
         Update: {
           analogies?: Json | null
           bilingual?: Json | null
+          comprehension_check?: Json
           created_at?: string
           document_id?: string
           examples?: Json | null
@@ -257,11 +268,15 @@ export type Database = {
           formulas?: Json
           id?: string
           key_concepts?: Json | null
+          key_points?: Json
           language?: string | null
           level?: string
+          memory_aids?: Json
           notes?: string | null
           practice?: Json | null
           processing_notes?: Json
+          quick_overview?: string | null
+          steps?: Json
           subject?: string | null
           summary?: string | null
           tables?: Json

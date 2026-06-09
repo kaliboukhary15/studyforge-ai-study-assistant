@@ -25,6 +25,8 @@ import {
   Dumbbell,
   StickyNote,
   Check,
+  Brain,
+  ListChecks,
 } from "lucide-react";
 
 const documentQueryOptions = (id: string) =>
@@ -86,7 +88,7 @@ function StudyPage() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "explanation" | "examples" | "visuals" | "practice" | "notes"
+    "explanation" | "examples" | "visuals" | "practice" | "memory" | "notes"
   >("explanation");
   const [level, setLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
   const [language, setLanguage] = useState<string>("auto");
@@ -222,6 +224,23 @@ function StudyPage() {
     answer: string;
     explanation: string;
   }>;
+  const quickOverview = (summary as { quick_overview?: string } | undefined)?.quick_overview ?? "";
+  const keyPoints = ((summary as { key_points?: unknown })?.key_points ?? []) as string[];
+  const steps = ((summary as { steps?: unknown })?.steps ?? []) as Array<{
+    title: string;
+    steps: Array<{ action: string; why?: string }>;
+  }>;
+  const memoryAids = ((summary as { memory_aids?: unknown })?.memory_aids ?? {}) as {
+    mnemonics?: Array<{ device: string; meaning: string }>;
+    revision_notes?: string[];
+    exam_tips?: string[];
+  };
+  const comprehension = ((summary as { comprehension_check?: unknown })?.comprehension_check ?? {}) as {
+    quick?: Array<{ question: string; answer: string }>;
+    medium?: Array<{ question: string; answer: string }>;
+    challenge?: Array<{ question: string; answer: string }>;
+  };
+  const [checkRevealed, setCheckRevealed] = useState<Record<string, boolean>>({});
   const summaryLang = (summary as { language?: string } | undefined)?.language ?? "english";
   const isRtl = ["arabic", "hebrew", "persian", "urdu"].includes(summaryLang);
   const langLabel: Record<string, string> = {
@@ -405,6 +424,7 @@ function StudyPage() {
               { key: "examples" as const, label: "Examples", icon: Beaker },
               { key: "visuals" as const, label: "Visuals", icon: ImageIcon },
               { key: "practice" as const, label: "Practice", icon: Dumbbell },
+              { key: "memory" as const, label: "Memory & Check", icon: Brain },
               { key: "notes" as const, label: "Notes", icon: StickyNote },
             ].map((tab) => (
               <button
@@ -429,6 +449,27 @@ function StudyPage() {
           >
             {activeTab === "explanation" && (
               <div className="space-y-6">
+                {quickOverview && (
+                  <div className="rounded-xl border-l-4 border-primary bg-primary/5 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">Quick overview</p>
+                    <p className="mt-1 text-sm text-foreground leading-relaxed">{quickOverview}</p>
+                  </div>
+                )}
+                {keyPoints.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                      <ListChecks className="h-5 w-5" /> Key Points
+                    </h2>
+                    <ul className="mt-2 grid gap-1.5">
+                      {keyPoints.map((p, i) => (
+                        <li key={i} className="flex gap-2 text-sm text-foreground">
+                          <span className="text-primary">•</span>
+                          <span>{p}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <div>
                   <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <BookOpen className="h-5 w-5" /> Summary
@@ -452,13 +493,42 @@ function StudyPage() {
                 {Array.isArray(summary.key_concepts) && summary.key_concepts.length > 0 && (
                   <div>
                     <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                      <Sparkles className="h-5 w-5" /> Key Concepts
+                      <Sparkles className="h-5 w-5" /> Definitions
                     </h2>
                     <div className="mt-2 grid gap-2">
                       {(summary.key_concepts as Array<{ term: string; definition: string }>).map((c, i) => (
                         <div key={i} className="rounded-lg border border-border bg-background p-3">
                           <p className="font-semibold text-sm text-foreground">{c.term}</p>
                           <p className="text-sm text-muted-foreground mt-0.5">{c.definition}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {steps.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Step-by-Step</h2>
+                    <div className="mt-2 space-y-3">
+                      {steps.map((proc, i) => (
+                        <div key={i} className="rounded-xl border border-border bg-background p-4">
+                          <h3 className="font-semibold text-foreground">{proc.title}</h3>
+                          <ol className="mt-2 space-y-2">
+                            {proc.steps.map((s, j) => (
+                              <li key={j} className="flex gap-3">
+                                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                                  {j + 1}
+                                </span>
+                                <div>
+                                  <p className="text-sm text-foreground">{s.action}</p>
+                                  {s.why && (
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                      <span className="font-medium">Why:</span> {s.why}
+                                    </p>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ol>
                         </div>
                       ))}
                     </div>
@@ -718,6 +788,100 @@ function StudyPage() {
                     </div>
                   ))
                 )}
+              </div>
+            )}
+
+            {activeTab === "memory" && (
+              <div className="space-y-6">
+                {(memoryAids.mnemonics?.length ?? 0) > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Mnemonics</h2>
+                    <div className="mt-2 grid gap-2">
+                      {memoryAids.mnemonics!.map((m, i) => (
+                        <div key={i} className="rounded-lg border-l-4 border-primary bg-primary/5 p-3">
+                          <p className="font-mono font-semibold text-sm text-foreground">{m.device}</p>
+                          <p className="text-sm text-muted-foreground mt-0.5">{m.meaning}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(memoryAids.revision_notes?.length ?? 0) > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Quick Revision Notes</h2>
+                    <ul className="mt-2 grid gap-1.5">
+                      {memoryAids.revision_notes!.map((n, i) => (
+                        <li key={i} className="flex gap-2 text-sm text-foreground">
+                          <span className="text-primary">•</span>
+                          <span>{n}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(memoryAids.exam_tips?.length ?? 0) > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Exam Tips</h2>
+                    <ul className="mt-2 grid gap-1.5">
+                      {memoryAids.exam_tips!.map((t, i) => (
+                        <li key={i} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
+                          {t}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(["quick", "medium", "challenge"] as const).map((tier) => {
+                  const items = comprehension[tier] ?? [];
+                  if (items.length === 0) return null;
+                  const tierLabel = { quick: "Quick Recall", medium: "Medium", challenge: "Challenge" }[tier];
+                  const tierColor = {
+                    quick: "bg-green-100 text-green-700",
+                    medium: "bg-yellow-100 text-yellow-700",
+                    challenge: "bg-red-100 text-red-700",
+                  }[tier];
+                  return (
+                    <div key={tier}>
+                      <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        Knowledge Check
+                        <span className={`rounded-full px-2 py-0.5 text-xs ${tierColor}`}>{tierLabel}</span>
+                      </h2>
+                      <div className="mt-2 space-y-2">
+                        {items.map((q, i) => {
+                          const key = `${tier}-${i}`;
+                          return (
+                            <div key={key} className="rounded-xl border border-border bg-background p-4">
+                              <p className="text-sm font-medium text-foreground">
+                                <span className="text-muted-foreground mr-2">Q{i + 1}.</span>
+                                {q.question}
+                              </p>
+                              {checkRevealed[key] ? (
+                                <p className="mt-2 rounded-lg bg-primary/5 p-2 text-sm text-foreground">
+                                  {q.answer}
+                                </p>
+                              ) : (
+                                <button
+                                  onClick={() => setCheckRevealed((r) => ({ ...r, [key]: true }))}
+                                  className="mt-2 text-xs text-primary hover:underline"
+                                >
+                                  Show answer
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+                {!memoryAids.mnemonics?.length &&
+                  !memoryAids.revision_notes?.length &&
+                  !memoryAids.exam_tips?.length &&
+                  !comprehension.quick?.length &&
+                  !comprehension.medium?.length &&
+                  !comprehension.challenge?.length && (
+                    <p className="text-sm text-muted-foreground">No memory aids generated. Regenerate to produce them.</p>
+                  )}
               </div>
             )}
 

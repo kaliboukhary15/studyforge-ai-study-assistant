@@ -261,6 +261,8 @@ If the language is Arabic, write right-to-left natural prose (the renderer handl
       subject: z.string(),
       summary: z.string(),
       explanation: z.string(),
+      quick_overview: z.string().default(""),
+      key_points: z.array(z.string()).default([]),
       key_concepts: z.array(z.object({ term: z.string(), definition: z.string() })).default([]),
       examples: z
         .array(
@@ -276,6 +278,16 @@ If the language is Arabic, write right-to-left natural prose (the renderer handl
         .default([]),
       analogies: z
         .array(z.object({ concept: z.string(), analogy: z.string() }))
+        .default([]),
+      steps: z
+        .array(
+          z.object({
+            title: z.string(),
+            steps: z
+              .array(z.object({ action: z.string(), why: z.string().optional() }))
+              .default([]),
+          })
+        )
         .default([]),
       visuals: z
         .array(
@@ -326,6 +338,20 @@ If the language is Arabic, write right-to-left natural prose (the renderer handl
           })
         )
         .default([]),
+      memory_aids: z
+        .object({
+          mnemonics: z.array(z.object({ device: z.string(), meaning: z.string() })).default([]),
+          revision_notes: z.array(z.string()).default([]),
+          exam_tips: z.array(z.string()).default([]),
+        })
+        .default({ mnemonics: [], revision_notes: [], exam_tips: [] }),
+      comprehension_check: z
+        .object({
+          quick: z.array(z.object({ question: z.string(), answer: z.string() })).default([]),
+          medium: z.array(z.object({ question: z.string(), answer: z.string() })).default([]),
+          challenge: z.array(z.object({ question: z.string(), answer: z.string() })).default([]),
+        })
+        .default({ quick: [], medium: [], challenge: [] }),
     });
 
     const attachedImageCount = built.parts.filter((p) => p.type === "image").length;
@@ -342,6 +368,19 @@ Learning level: ${level}. ${levelGuide[level]}
 ${languageInstruction}
 
 Teach — don't summarize. Set the "subject" field in your JSON to "${subject}".
+
+LEARNING-FIRST STYLE (mandatory):
+- Behave like a teacher creating study aids, NOT a textbook rewriter.
+- AVOID walls of text. Prefer bullets, short sentences, examples, diagrams, and exercises over paragraphs.
+- "quick_overview": 2–3 sentences MAX explaining what the topic is.
+- "key_points": short, scannable bullet strings (8–15 words each). 5–10 items.
+- "key_concepts": important terms with concise definitions (1–2 sentences each).
+- "summary" and "explanation": keep BRIEF — each at most ~6 short lines. Use line breaks; never produce one giant paragraph. If you'd write a long passage, break it into "key_points", "steps", or "examples" instead.
+- "steps": for procedures/algorithms/workflows, give one or more step-by-step demos. Each step has an "action" and a short "why" explaining the reason.
+- "memory_aids": include subject-appropriate mnemonics, quick revision notes (one-line reminders), and exam tips (what students commonly miss).
+- "comprehension_check": short knowledge check with 3 tiers — "quick" (recall, ~3 items), "medium" (apply, ~3 items), "challenge" (analyze/synthesize, ~2 items). Each item has question + answer.
+- Generate subject-specific practice (math problems, code/debug tasks, SQL, networking scenarios, MIS case studies, science calculations, etc.) following the subject playbook.
+- Whenever a concept benefits from a picture, prefer a Mermaid diagram or a table over prose.
 
 Rules for examples: every example MUST follow the subject playbook above. Do not produce generic prose examples when the playbook calls for worked problems, code, SQL, journal entries, IRAC, or case studies.
 
@@ -363,14 +402,19 @@ Return STRICTLY a single valid JSON object (no prose, no markdown fences) with e
   "subject": string,
   "summary": string,
   "explanation": string,
+  "quick_overview": string,
+  "key_points": string[],
   "key_concepts": [{ "term": string, "definition": string }],
   "examples": [{ "title": string, "kind": "worked_problem"|"code"|"sql"|"scenario"|"calculation"|"trace", "language": string?, "content": string, "common_mistakes": string[]?, "alternative_methods": string[]? }],
   "analogies": [{ "concept": string, "analogy": string }],
+  "steps": [{ "title": string, "steps": [{ "action": string, "why": string? }] }],
   "visuals": [{ "title": string, "description": string, "mermaid": string }],
   "visual_analysis": [{ "title": string, "kind": string?, "page": (number|string)?, "description": string, "image_index": number? }],
   "formulas": [{ "latex": string, "plain": string?, "explanation": string }],
   "tables": [{ "title": string, "headers": string[], "rows": string[][], "explanation": string }],
-  "practice": [{ "question": string, "difficulty": "easy"|"medium"|"hard", "answer": string, "explanation": string }]
+  "practice": [{ "question": string, "difficulty": "easy"|"medium"|"hard", "answer": string, "explanation": string }],
+  "memory_aids": { "mnemonics": [{ "device": string, "meaning": string }], "revision_notes": string[], "exam_tips": string[] },
+  "comprehension_check": { "quick": [{ "question": string, "answer": string }], "medium": [{ "question": string, "answer": string }], "challenge": [{ "question": string, "answer": string }] }
 }`;
 
     const userParts: Array<
@@ -438,9 +482,12 @@ Return STRICTLY a single valid JSON object (no prose, no markdown fences) with e
         bilingual: { enabled: bilingual },
         summary: output.summary,
         explanation: output.explanation,
+        quick_overview: output.quick_overview,
+        key_points: output.key_points,
         key_concepts: output.key_concepts,
         examples: output.examples,
         analogies: output.analogies,
+        steps: output.steps,
         visuals: output.visuals,
         visual_analysis: output.visual_analysis,
         formulas: output.formulas,
@@ -452,7 +499,9 @@ Return STRICTLY a single valid JSON object (no prose, no markdown fences) with e
           saved_images: savedImagesCount,
         },
         practice: output.practice,
-      })
+        memory_aids: output.memory_aids,
+        comprehension_check: output.comprehension_check,
+      } as never)
       .select()
       .single();
 
