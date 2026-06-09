@@ -501,7 +501,7 @@ Return STRICTLY a single valid JSON object (no prose, no markdown fences) with e
         practice: output.practice,
         memory_aids: output.memory_aids,
         comprehension_check: output.comprehension_check,
-      })
+      } as never)
       .select()
       .single();
 
